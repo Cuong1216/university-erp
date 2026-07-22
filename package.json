@@ -1,0 +1,17 @@
+{
+  "name": "university-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "University ERP Enterprise Monorepo - Spring Boot 3 & React Vite TypeScript",
+  "scripts": {
+    "dev": "concurrently -c \"blue,green\" -n \"BACKEND,FRONTEND\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "node -e \"const { spawn } = require('child_process'); const cmd = process.platform === 'win32' ? 'mvnw.cmd' : './mvnw'; spawn(cmd, ['spring-boot:run'], { cwd: './backend', stdio: 'inherit', shell: true });\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "concurrently -c \"blue,green\" -n \"BUILD-API,BUILD-WEB\" \"npm run build:backend\" \"npm run build:frontend\"",
+    "build:backend": "node -e \"const { spawn } = require('child_process'); const cmd = process.platform === 'win32' ? 'mvnw.cmd' : './mvnw'; spawn(cmd, ['clean', 'package', '-DskipTests'], { cwd: './backend', stdio: 'inherit', shell: true });\"",
+    "build:frontend": "npm run build --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

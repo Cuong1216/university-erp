@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Service 1: PostgreSQL 15 Database
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-university_erp_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-54342}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init_database.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-university_erp_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
+
+  # ==========================================
+  # Service 2: Spring Boot Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp-backend
+    restart: always
+    environment:
+      # Kết nối tới postgres thông qua hostname 'postgres' (service name) và port 5432
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-university_erp_db}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-54342}
+      DDL_AUTO: validate
+      JWT_SECRET: ${JWT_SECRET:-K7uQ+bL9xW2z/P4mR8tV0yC3eF6hJ9kM2nQ5rU8wX1zA4dG7jL0vO3sY6bE9hI2lN5pR8uV1xZ4cE7fJ0mK3oQ==}
+      TZ: Asia/Ho_Chi_Minh
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080" # Mở port 8080 ra host để tiện debug API hoặc kiểm thử qua Postman
+    networks:
+      - erp-network
+
+  # ==========================================
+  # Service 3: React Vite Frontend SPA + Nginx
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Sử dụng relative path /api/v1 để Nginx proxy_pass tự động chuyển sang Backend
+        VITE_API_BASE_URL: /api/v1
+    container_name: erp-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80" # Người dùng truy cập trực tiếp http://localhost (port 80)
+    networks:
+      - erp-network
+
+# ==========================================
+# Volumes & Networks Definitions
+# ==========================================
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  erp-network:
+    driver: bridge

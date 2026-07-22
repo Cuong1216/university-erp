@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/university_erp_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:54342}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET:K7uQ+bL9xW2z/P4mR8tV0yC3eF6hJ9kM2nQ5rU8wX1zA4dG7jL0vO3sY6bE9hI2lN5pR8uV1xZ4cE7fJ0mK3oQ==}
