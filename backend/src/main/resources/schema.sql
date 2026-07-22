@@ -33,6 +33,7 @@ DROP TABLE IF EXISTS USER_ROLES CASCADE;
 DROP TABLE IF EXISTS PERMISSIONS CASCADE;
 DROP TABLE IF EXISTS ROLES CASCADE;
 DROP TABLE IF EXISTS USERS CASCADE;
+DROP TABLE IF EXISTS AUDIT_LOG CASCADE;
 
 
 -- ==============================================================================
@@ -260,6 +261,17 @@ CREATE TABLE NHAT_KY_GIANG_DAY (
     ma_bang_luong VARCHAR(50) REFERENCES BANG_LUONG_THANG(ma_bang_luong) ON DELETE SET NULL
 );
 
+CREATE TABLE AUDIT_LOG (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    entity_name VARCHAR(100) NOT NULL,
+    entity_id VARCHAR(100),
+    old_value JSONB,
+    new_value JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- ==============================================================================
 -- PHẦN 3: TẠO TRIGGER, INDEX, VIEW (TỐI ƯU HÓA DB)
@@ -284,6 +296,9 @@ FOR EACH ROW EXECUTE FUNCTION function_kiem_tra_tiet_hoc();
 CREATE INDEX idx_giang_vien_ten ON GIANG_VIEN(ten, ho_dem);
 CREATE INDEX idx_lich_hoc_lop_hp ON LICH_HOC_CHI_TIET(ma_lop_hp);
 CREATE INDEX idx_nhat_ky_chua_thanh_toan ON NHAT_KY_GIANG_DAY(ngay_day_thuc_te, trang_thai_thanh_toan) WHERE trang_thai_thanh_toan = FALSE;
+CREATE INDEX idx_audit_log_username ON AUDIT_LOG(username);
+CREATE INDEX idx_audit_log_entity ON AUDIT_LOG(entity_name, entity_id);
+CREATE INDEX idx_audit_log_action_type ON AUDIT_LOG(action_type);
 
 -- View xuất hồ sơ giảng viên
 CREATE OR REPLACE VIEW v_ho_so_giang_vien AS
@@ -389,3 +404,28 @@ SELECT 'NK_' || i, 'LICH_' || i, CURRENT_DATE - (floor(random() * 30 + 1)::int *
 FROM generate_series(1, 500) AS i;
 
 -- Script hoàn tất!
+
+-- 4.7 Sinh dữ liệu mẫu Bảng Lương Tháng cho 6 tháng gần nhất (để hiển thị trực quan trên Admin Dashboard)
+INSERT INTO BANG_LUONG_THANG (
+    ma_bang_luong, ma_gv, thang, nam, tong_so_tiet_thuc_te, 
+    he_so_cd_snapshot, he_so_hv_snapshot, luong_co_ban_snapshot, don_gia_tiet_snapshot, 
+    tong_tien_luong, trang_thai, ngay_chot_luong, chi_tiet_tinh_luong_json
+)
+SELECT 
+    'BL_SAMPLE_' || m || '_' || LPAD(i::text, 4, '0'),
+    'GV_' || LPAD(i::text, 4, '0'),
+    m,
+    2026,
+    (20 + (i % 15)),
+    1.5,
+    1.2,
+    2340000,
+    120000,
+    (2340000 + (20 + (i % 15)) * 120000 * 1.5),
+    'DA_DUYET',
+    CURRENT_TIMESTAMP - ((7 - m) * interval '30 day'),
+    '{"congThuc": "TongTienLuong = LuongCoBan + (SoTiet * DonGia * HeSo)"}'::jsonb
+FROM generate_series(2, 7) AS m
+CROSS JOIN generate_series(1, 50) AS i
+ON CONFLICT (ma_gv, thang, nam) DO NOTHING;
+

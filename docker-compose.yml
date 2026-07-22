@@ -22,9 +22,27 @@ services:
       retries: 5
     networks:
       - erp-network
+  # ==========================================
+  # Service 2: Redis Caching Layer
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - erp-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # ==========================================
-  # Service 2: Spring Boot Backend API
+  # Service 3: Spring Boot Backend API
   # ==========================================
   backend:
     build:
@@ -40,8 +58,12 @@ services:
       DDL_AUTO: validate
       JWT_SECRET: ${JWT_SECRET:-K7uQ+bL9xW2z/P4mR8tV0yC3eF6hJ9kM2nQ5rU8wX1zA4dG7jL0vO3sY6bE9hI2lN5pR8uV1xZ4cE7fJ0mK3oQ==}
       TZ: Asia/Ho_Chi_Minh
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8080:8080" # Mở port 8080 ra host để tiện debug API hoặc kiểm thử qua Postman
@@ -49,7 +71,7 @@ services:
       - erp-network
 
   # ==========================================
-  # Service 3: React Vite Frontend SPA + Nginx
+  # Service 4: React Vite Frontend SPA + Nginx
   # ==========================================
   frontend:
     build:
@@ -72,6 +94,8 @@ services:
 # ==========================================
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local
 
 networks:
