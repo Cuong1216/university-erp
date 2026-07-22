@@ -56,7 +56,12 @@ graph LR
 * **Production DDL Safeguards:** Enforced `DDL_AUTO: validate` in production container configurations to strictly prevent accidental schema modifications or table drops during container restarts.
 * **Sanitized Client Diagnostics:** Stripped internal server topologies (`localhost:8080` or stack traces) from frontend error notifications while logging detailed diagnostics safely on the server side.
 
-### 4. 🚀 DevOps, Multi-Stage Builds & Automated CI/CD
+### 4. 📊 Enterprise Admin Dashboard & Visual Analytics (Recharts)
+* **Real-time Payroll & Faculty Distribution:** Built a dynamic, responsive `AdminDashboard` module utilizing `Recharts` (`LineChart` & `PieChart` with custom hover tooltips and KPI overview cards) to visualize 6-month salary expenditure trends alongside real-time department-level budget allocation.
+* **Optimized Aggregation Queries:** Designed custom native SQL & JPQL group-by queries (`MonthlySalaryTrendView` & `DepartmentSalaryView`) inside `BangLuongThangRepository` to compute complex multi-period aggregations directly within PostgreSQL, preventing out-of-memory processing on the JVM.
+* **Vite & WebSocket Compatibility:** Natively configured `define: { global: 'window' }` in `vite.config.ts` ensuring seamless compatibility between modern Vite ES modules and Node-based WebSocket libraries (`@stomp/stompjs` & `sockjs-client`).
+
+### 5. 🚀 DevOps, Multi-Stage Builds & Automated CI/CD
 * **Multi-Stage Containerization:** Built highly compact Docker images using layered builds (`maven:3.9.9-eclipse-temurin-17-alpine` ➔ `eclipse-temurin:17-jre-alpine` running as a non-root `spring:spring` user; and `node:18-alpine` ➔ `nginx:alpine` with Gzip asset compression).
 * **Automated TDD Quality Gate:** Integrated GitHub Actions (`.github/workflows/ci.yml`) spinning up ephemeral PostgreSQL containers to execute full `mvn clean verify` unit/integration test suites alongside React TypeScript compilation and `ESLint` style validations on every commit.
 
@@ -71,9 +76,9 @@ university-erp/
 │       └── ci.yml               # Automated CI pipeline (Maven verify & npm lint/build)
 ├── backend/                     # Spring Boot 3 REST API (Java 17)
 │   ├── src/main/java/com/wiz/universityerpapi/
-│   │   ├── controller/          # REST endpoints & authorization checks
+│   │   ├── controller/          # REST endpoints (DashboardController, LuongController, etc.)
 │   │   ├── service/             # Transactional business logic & payroll calculation
-│   │   ├── repository/          # Spring Data JPA repositories & Projections
+│   │   ├── repository/          # Spring Data JPA repositories & Aggregation Projections
 │   │   ├── entity/              # JPA domain models with explicit FetchTypes
 │   │   ├── exception/           # Custom exception hierarchy & GlobalExceptionHandler
 │   │   └── security/            # JWT Token Provider, Filters & EntryPoints
@@ -82,8 +87,11 @@ university-erp/
 ├── frontend/                    # React 18 + Vite + TypeScript SPA
 │   ├── src/
 │   │   ├── api/                 # Axios client with interceptors & PROD base URL guard
-│   │   ├── pages/               # Rich dynamic UI modules (Salary, Schedule, Admin)
-│   │   └── store/               # Zustand global authentication state management
+│   │   ├── components/
+│   │   │   └── dashboard/       # Recharts Line/Pie Analytics & KPI Cards (AdminDashboard)
+│   │   ├── pages/               # Rich dynamic UI modules (Dashboard, Salary, Schedule, Admin)
+│   │   └── store/               # Zustand global authentication & dashboard state
+│   ├── vite.config.ts           # Vite build config with WebSocket global compatibility
 │   ├── nginx.conf               # Nginx SPA routing, Gzip & Reverse Proxy configuration
 │   └── Dockerfile               # Multi-stage Node Alpine -> Nginx Alpine build
 ├── sql/
@@ -133,14 +141,14 @@ npm run dev
 
 ## 🔑 Demo Accounts
 
-The database comes pre-seeded (`sql/init_database.sql`) with enterprise mock accounts. All accounts use the bcrypt-hashed password: `123456`.
+When the application boots, `DataInitializer.java` automatically seeds the database with the following accounts for comprehensive feature & RBAC testing:
 
-| Role | Username | Password | Key Permissions |
+| Role | Username | Password | Key Permissions & Accessible Modules |
 | :--- | :--- | :--- | :--- |
-| **System Admin** | `admin` | `123456` | Full system control, role assignment, system settings |
-| **Academic Officer (Giáo vụ)** | `giao_vu_01` | `123456` | Finalize monthly payrolls, export Excel salary sheets, manage schedules |
-| **Lecturer (Giảng viên)** | `GV_0001` to `GV_1000` | `123456` | View personal teaching schedule, inspect salary snapshots & calculation details |
-| **Student (Sinh viên)** | `SV_0001` to `SV_2000` | `123456` | View enrolled classes and academic transcripts |
+| **👑 System Admin** | `admin` | `admin123` | **Full system access**: View **Admin Dashboard** (`/dashboard` with Recharts 6-month salary trends & faculty breakdown), salary config (`/admin/salary-config`), user & role management. |
+| **📚 Academic Officer (Giáo vụ)** | `giaovu` | `giaovu123` | Manage academic salary calculations (`/academic/salary-management`), finalize monthly payrolls (`chot-luong`), export Excel reports. |
+| **👨‍🏫 Lecturer (Giảng viên)** | `gv01` | `gv123` | View personal teaching schedule (`/schedule`), inspect monthly salary snapshots (`/teacher/salary`). |
+| **🎓 Student (Sinh viên)** | `sv01` | `sv123` | View personal academic schedule (`/schedule`) and semester grades (`/student/grades`). |
 
 ---
 
@@ -151,7 +159,7 @@ The database comes pre-seeded (`sql/init_database.sql`) with enterprise mock acc
 | **Backend Core** | Java 17, Spring Boot 3.4.1, Spring Security 6, Spring Data JPA, Hibernate ORM |
 | **Security & Auth** | JSON Web Tokens (JJWT 0.12.6 with HMAC-SHA512), BCrypt Password Hashing |
 | **Database & Caching** | PostgreSQL 15, HikariCP Connection Pooling, B-Tree Indexing |
-| **Frontend Core** | React 18, TypeScript 5.6, Vite 8, Zustand State Management, React Router 7 |
+| **Frontend Core** | React 18, TypeScript 5.6, Vite 8, Recharts 3, Zustand State Management, React Router 7 |
 | **HTTP & Reporting** | Axios with Auth Interceptors, Apache POI 5.4.0 (Excel Spreadsheet Export) |
 | **DevOps & Tooling** | Docker, Docker Compose, Nginx Alpine, GitHub Actions CI/CD, Concurrently |
 
@@ -162,6 +170,7 @@ The database comes pre-seeded (`sql/init_database.sql`) with enterprise mock acc
 | HTTP Method | Endpoint | Secured Role | Description |
 | :---: | :--- | :---: | :--- |
 | `POST` | `/api/v1/auth/login` | *Public* | Authenticate user credentials and issue signed JWT Bearer token |
+| `GET` | `/api/v1/dashboard/salary-stats` | `ROLE_ADMIN` | Retrieve aggregated 6-month salary historical trend and current-month faculty distribution for charts |
 | `GET` | `/api/v1/luong/my-salary` | `ROLE_GIANG_VIEN` | Retrieve authenticated lecturer's current monthly salary snapshot & history |
 | `POST` | `/api/v1/luong/chot-luong` | `ROLE_GIAO_VU`, `ROLE_ADMIN` | Finalize teaching log calculations & freeze salary snapshot for a given month |
 | `GET` | `/api/v1/luong/export/excel` | `ROLE_GIAO_VU`, `ROLE_ADMIN` | Export comprehensive monthly payroll report as a formatted Excel (`.xlsx`) file |

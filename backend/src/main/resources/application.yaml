@@ -8,12 +8,18 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: ${DDL_AUTO:validate}
+      ddl-auto: ${DDL_AUTO:update}
     show-sql: false
     open-in-view: false
     properties:
       hibernate:
         format_sql: false
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  cache:
+    type: redis
 
 jwt:
   secret: ${JWT_SECRET:9a4f2c8d7e1b5a3f6c9d2e8a4b7c1e5f8a3d6b9c2e7f1a4b8c3d6e9f2a5b8c1e}

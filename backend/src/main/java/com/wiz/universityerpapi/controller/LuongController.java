@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/api/v1/luong")
@@ -31,10 +33,17 @@ public class LuongController {
 
     @PostMapping("/chot-luong")
     @PreAuthorize("hasAnyRole('ROLE_GIANG_VIEN', 'ROLE_GIAO_VU', 'ROLE_ADMIN')")
-    public ResponseEntity<ChotLuongResponseDTO> chotLuongThang(@Valid @RequestBody ChotLuongRequestDTO request,
-                                                             @AuthenticationPrincipal CustomUserDetails currentUser) {
-        ChotLuongResponseDTO response = luongService.chotLuongThang(request, currentUser);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Map<String, Object>> chotLuongThang(@Valid @RequestBody ChotLuongRequestDTO request,
+                                                              @AuthenticationPrincipal CustomUserDetails currentUser) {
+        luongService.chotLuongThangAsync(request, currentUser);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(Map.of(
+                        "status", "PROCESSING",
+                        "message", String.format("Yêu cầu chốt lương tháng %d/%d cho giảng viên %s đã được tiếp nhận và đang xử lý trong nền.", request.getThang(), request.getNam(), request.getMaGv()),
+                        "maGv", request.getMaGv(),
+                        "thang", request.getThang(),
+                        "nam", request.getNam()
+                ));
     }
 
     @GetMapping("/my-salary")

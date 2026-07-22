@@ -27,8 +27,12 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.wiz.universityerpapi.aop.LogAuditAction;
 import com.wiz.universityerpapi.security.CustomUserDetails;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -40,8 +44,10 @@ public class LuongService {
     private final BangLuongThangRepository bangLuongThangRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
+    @LogAuditAction(actionType = "CHOT_LUONG_THANG", entityName = "BangLuongThang", idExpression = "#result.maBangLuong")
     public ChotLuongResponseDTO chotLuongThang(ChotLuongRequestDTO request, CustomUserDetails currentUser) {
         String maGvToProcess = request.getMaGv();
         boolean isAdminOrGiaoVu = currentUser.getAuthorities().stream()
@@ -189,5 +195,43 @@ public class LuongService {
                 .trangThai(bl.getTrangThai())
                 .ngayChotLuong(bl.getNgayChotLuong())
                 .build()).collect(Collectors.toList());
+    }
+
+    @Async("payrollTaskExecutor")
+    public CompletableFuture<Void> chotLuongThangAsync(ChotLuongRequestDTO request, CustomUserDetails currentUser) {
+        String username = currentUser.getUsername();
+        int thang = request.getThang();
+        int nam = request.getNam();
+        String maGv = request.getMaGv();
+
+        log.info("Bắt đầu xử lý chốt lương bất đồng bộ cho GV: {} (Tháng {}/{}) bởi User: {}", maGv, thang, nam, username);
+
+        try {
+            ChotLuongResponseDTO result = this.chotLuongThang(request, currentUser);
+
+            Map<String, Object> payload = Map.of(
+                    "type", "CHOT_LUONG_SUCCESS",
+                    "status", "SUCCESS",
+                    "message", String.format("🎉 Chốt lương thành công cho giảng viên %s (Tháng %d/%d)!", maGv, thang, nam),
+                    "data", result,
+                    "timestamp", System.currentTimeMillis()
+            );
+
+            messagingTemplate.convertAndSendToUser(username, "/queue/notifications", payload);
+            log.info("Đã gửi thông báo WebSocket thành công tới user: {}", username);
+
+        } catch (Exception ex) {
+            log.error("Lỗi khi xử lý chốt lương bất đồng bộ cho GV: {}", maGv, ex);
+
+            Map<String, Object> errorPayload = Map.of(
+                    "type", "CHOT_LUONG_ERROR",
+                    "status", "ERROR",
+                    "message", String.format("❌ Chốt lương thất bại (Tháng %d/%d cho %s): %s", thang, nam, maGv, ex.getMessage()),
+                    "timestamp", System.currentTimeMillis()
+            );
+            messagingTemplate.convertAndSendToUser(username, "/queue/notifications", errorPayload);
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 }
