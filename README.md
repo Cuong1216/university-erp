@@ -29,7 +29,7 @@ The application follows an **Enterprise Monorepo Architecture** unifying a Java 
 graph LR
     Client([🌐 Web Browser / Client]) -->|HTTP :80| Nginx[🛡️ Nginx Alpine SPA Router]
     
-    subgraph Docker Bridge Network (erp-network)
+    subgraph "Docker Bridge Network (erp-network)"
         Nginx -->|Reverse Proxy /api/v1/* :8080| API[🚀 Spring Boot 3 Backend API]
         Nginx -->|Try Files SPA Fallback| Static[📦 React Vite Static Dist]
         API -->|JDBC / HikariCP :5432| DB[(🐘 PostgreSQL 15 Database)]
