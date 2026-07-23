@@ -70,8 +70,8 @@ management:
 ai:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/university_erp_db}
-    username: ${AI_DB_USERNAME:erp_ai_readonly_user}
-    password: ${AI_DB_PASSWORD:secure_ai_db_password}
+    username: ${AI_DB_USERNAME:${DB_USERNAME:erp_ai_readonly_user}}
+    password: ${AI_DB_PASSWORD:${DB_PASSWORD:secure_ai_db_password}}
     driver-class-name: org.postgresql.Driver
 
 langchain4j:
