@@ -25,15 +25,22 @@
 
 The application follows an **Enterprise Monorepo Architecture** unifying a Java 17 Spring Boot REST API and a React Vite SPA client. In production, both services communicate seamlessly inside a Docker bridge network where an optimized Nginx container serves compressed static assets and acts as a reverse proxy for API traffic (`/api/*`), eliminating cross-origin (CORS) overhead and hiding internal backend ports from public internet exposure.
 
-```mermaid
-graph LR
-    Client([🌐 Web Browser / Client]) -->|HTTP :80| Nginx[🛡️ Nginx Alpine SPA Router]
-    
-    subgraph "Docker Bridge Network (erp-network)"
-        Nginx -->|Reverse Proxy /api/v1/* :8080| API[🚀 Spring Boot 3 Backend API]
-        Nginx -->|Try Files SPA Fallback| Static[📦 React Vite Static Dist]
-        API -->|JDBC / HikariCP :5432| DB[(🐘 PostgreSQL 15 Database)]
-    end
+```text
+[ 🌐 Web Browser / Client ]
+           │
+           │ HTTP :80
+           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 🛡️ Nginx Alpine SPA Router (Container)                                      │
+│                                                                             │
+│   ├─► Reverse Proxy (/api/v1/*) ──► [ 🚀 Spring Boot 3 Backend API ]       │
+│   │                                           │                             │
+│   │                                           │ JDBC / HikariCP :5432       │
+│   │                                           ▼                             │
+│   │                                 [ 🐘 PostgreSQL 15 DB ]                 │
+│   │                                                                         │
+│   └─► SPA Fallback ───────────────► [ 📦 React Vite Static Dist ]           │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
