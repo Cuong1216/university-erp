@@ -8,6 +8,8 @@ import com.wiz.universityerpapi.repository.projection.DepartmentSalaryView;
 import com.wiz.universityerpapi.repository.projection.MonthlySalaryTrendView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,10 +24,16 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class DashboardService {
+public class DashboardService implements IDashboardService {
 
     private final BangLuongThangRepository bangLuongThangRepository;
 
+    /**
+     * Lấy thống kê lương dashboard.
+     * Cache key: "{thang}-{nam}" với TTL 5 phút (cấu hình trong RedisConfig).
+     * Cache được evict tự động khi có chốt lương mới qua invalidateDashboardCache().
+     */
+    @Cacheable(value = "dashboard_stats", key = "(#thang != null ? #thang : 'latest') + '-' + (#nam != null ? #nam : 'latest')")
     @Transactional(readOnly = true)
     public SalaryStatsResponseDTO getSalaryStats(Integer thang, Integer nam) {
         // 1. Xác định tháng/năm hiện tại để báo cáo (nếu null thì lấy tháng mới nhất có dữ liệu hoặc tháng hiện tại)
@@ -129,5 +137,14 @@ public class DashboardService {
                 .monthlyGrowthRate(monthlyGrowthRate)
                 .totalLecturersPaid(totalLecturersPaid)
                 .build();
+    }
+
+    /**
+     * Xóa toàn bộ dashboard cache khi có dữ liệu lương mới được chốt.
+     * Được gọi bởi LuongService sau khi chotLuong thành công.
+     */
+    @CacheEvict(value = "dashboard_stats", allEntries = true)
+    public void invalidateDashboardCache() {
+        log.info("Dashboard stats cache đã được xóa do có bảng lương mới");
     }
 }

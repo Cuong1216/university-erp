@@ -4,7 +4,7 @@ import com.wiz.universityerpapi.dto.ChotLuongRequestDTO;
 import com.wiz.universityerpapi.dto.ChotLuongResponseDTO;
 import com.wiz.universityerpapi.dto.MySalaryResponseDTO;
 import com.wiz.universityerpapi.security.CustomUserDetails;
-import com.wiz.universityerpapi.service.LuongService;
+import com.wiz.universityerpapi.service.ILuongService;
 import com.wiz.universityerpapi.service.SalaryExportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public class LuongController {
 
-    private final LuongService luongService;
+    private final ILuongService luongService;
     private final SalaryExportService salaryExportService;
 
     @PostMapping("/chot-luong")

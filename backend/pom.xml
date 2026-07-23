@@ -114,7 +114,39 @@
 			<artifactId>poi-ooxml</artifactId>
 			<version>5.4.0</version>
 		</dependency>
+
+		<!-- B3: Spring Boot Actuator — /actuator/health, /actuator/metrics -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- B3: Micrometer Prometheus Registry — /actuator/prometheus cho Grafana -->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+
+		<!-- C1: LangChain4j Spring Boot Starter — AI Copilot & Text-to-SQL -->
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-spring-boot-starter</artifactId>
+			<version>0.36.2</version>
+		</dependency>
+		<dependency>
+			<groupId>dev.langchain4j</groupId>
+			<artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
+			<version>0.36.2</version>
+		</dependency>
+
+		<!-- C3: Google OR-Tools — Constraint Satisfaction Problem (CSP) Solver cho tự động xếp lịch -->
+		<dependency>
+			<groupId>com.google.ortools</groupId>
+			<artifactId>ortools-java</artifactId>
+			<version>9.10.4067</version>
+		</dependency>
 	</dependencies>
+
 
 	<build>
 		<plugins>

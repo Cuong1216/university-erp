@@ -29,6 +29,7 @@ services:
     image: redis:7-alpine
     container_name: erp-redis
     restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-erp_redis_secret_2024}
     ports:
       - "6379:6379"
     volumes:
@@ -36,7 +37,7 @@ services:
     networks:
       - erp-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-erp_redis_secret_2024}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -60,6 +61,8 @@ services:
       TZ: Asia/Ho_Chi_Minh
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-erp_redis_secret_2024}
+      AI_FORECASTER_URL: http://salary-forecaster-ai:8001/forecast
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,13 +92,74 @@ services:
     networks:
       - erp-network
 
+  # ==========================================
+  # Service 5: Prometheus — Thu thập metrics
+  # ==========================================
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: erp-prometheus
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+    networks:
+      - erp-network
+
+  # ==========================================
+  # Service 6: Grafana — Visualize metrics
+  # ==========================================
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: erp-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000" # Truy cập Grafana tại http://localhost:3000
+    depends_on:
+      - prometheus
+    networks:
+      - erp-network
+
+  # ==========================================
+  # Service 7: Python AI Salary Forecaster
+  # ==========================================
+  salary-forecaster-ai:
+    build:
+      context: ./ai-services/forecaster
+      dockerfile: Dockerfile
+    container_name: erp-salary-forecaster-ai
+    restart: always
+    ports:
+      - "8001:8001"
+    networks:
+      - erp-network
+
 # ==========================================
 # Volumes & Networks Definitions
 # ==========================================
+
 volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local
 
 networks:

@@ -21,6 +21,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -30,6 +31,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+                // B1: Kiểm tra token có bị blacklist (logout/revoke) không
+                String jti = tokenProvider.getJtiFromToken(jwt);
+                if (tokenBlacklistService.isBlacklisted(jti)) {
+                    logger.warn("Rejected blacklisted token with jti: " + jti);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 String username = tokenProvider.getUsernameFromToken(jwt);
 
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);

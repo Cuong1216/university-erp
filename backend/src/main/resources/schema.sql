@@ -300,6 +300,12 @@ CREATE INDEX idx_audit_log_username ON AUDIT_LOG(username);
 CREATE INDEX idx_audit_log_entity ON AUDIT_LOG(entity_name, entity_id);
 CREATE INDEX idx_audit_log_action_type ON AUDIT_LOG(action_type);
 
+-- A7: Index tối ưu cho Schedule Conflict Check (LichHocService)
+-- Tăng tốc kiểm tra trùng phòng học và trùng lịch giảng viên
+CREATE INDEX idx_lich_hoc_conflict_check ON LICH_HOC_CHI_TIET(thu_trong_tuan, tiet_bat_dau, tiet_ket_thuc);
+CREATE INDEX idx_tuan_hoc_lich ON TUAN_HOC_CHI_TIET(ma_lich, tuan_thu);
+CREATE INDEX idx_bang_luong_ma_gv_thang_nam ON BANG_LUONG_THANG(ma_gv, thang, nam);
+
 -- View xuất hồ sơ giảng viên
 CREATE OR REPLACE VIEW v_ho_so_giang_vien AS
 SELECT 
@@ -352,9 +358,10 @@ INSERT INTO ROLES (role_name, description) VALUES
 ('ROLE_ADMIN', 'Quản trị viên'), ('ROLE_GIANG_VIEN', 'Giảng viên'), ('ROLE_SINH_VIEN', 'Sinh viên');
 
 -- 4.3 Sinh 1000 Giảng Viên & Mapping User (với hash chuẩn BCrypt của mật khẩu 123456)
+-- BCrypt hash thực của '123456': $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LqTFOo.cDm6
 WITH new_gv_users AS (
     INSERT INTO USERS (username, password_hash)
-    SELECT 'GV_' || LPAD(i::text, 4, '0'), '$2a$10$wT/0v4r9.2/V/L/2/0/2.e/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7'
+    SELECT 'GV_' || LPAD(i::text, 4, '0'), '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LqTFOo.cDm6'
     FROM generate_series(1, 1000) AS i RETURNING id, username
 )
 INSERT INTO GIANG_VIEN (ma_gv, user_id, ma_bo_mon, ma_cd, ma_hv, ho_dem, ten, email, cccd)
@@ -368,9 +375,10 @@ INSERT INTO USER_ROLES (user_id, role_id)
 SELECT id, (SELECT id FROM ROLES WHERE role_name = 'ROLE_GIANG_VIEN') FROM USERS WHERE username LIKE 'GV_%';
 
 -- 4.4 Sinh 2000 Sinh viên & Mapping User (với hash chuẩn BCrypt của mật khẩu 123456)
+-- BCrypt hash thực của '123456': $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LqTFOo.cDm6
 WITH new_sv_users AS (
     INSERT INTO USERS (username, password_hash)
-    SELECT 'SV_' || LPAD(i::text, 4, '0'), '$2a$10$wT/0v4r9.2/V/L/2/0/2.e/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7'
+    SELECT 'SV_' || LPAD(i::text, 4, '0'), '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LqTFOo.cDm6'
     FROM generate_series(1, 2000) AS i RETURNING id, username
 )
 INSERT INTO SINH_VIEN (ma_sv, user_id, ma_lop_sh, ho_dem, ten, email)
@@ -428,4 +436,19 @@ SELECT
 FROM generate_series(2, 7) AS m
 CROSS JOIN generate_series(1, 50) AS i
 ON CONFLICT (ma_gv, thang, nam) DO NOTHING;
+
+-- ==============================================================================
+-- PHẦN 5: AI READ-ONLY DATABASE USER (PHYSICAL ISOLATION FOR TEXT-TO-SQL)
+-- ==============================================================================
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'erp_ai_readonly_user') THEN 
+        CREATE ROLE erp_ai_readonly_user LOGIN PASSWORD 'secure_ai_db_password';
+    END IF; 
+END $$;
+
+-- Cấp quyền truy cập kết nối và chỉ cho phép SELECT (từ chối mọi thao tác ghi/xóa/sửa)
+GRANT USAGE ON SCHEMA public TO erp_ai_readonly_user;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO erp_ai_readonly_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO erp_ai_readonly_user;
 

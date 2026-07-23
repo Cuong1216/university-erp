@@ -6,6 +6,17 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    # B4: HikariCP Connection Pool Tuning
+    # Công thức: (CPU_cores × 2) + effective_spindle_count
+    # Với server 4-core: 4×2+1=9, round up = 10-20 connections
+    hikari:
+      pool-name: ERP-HikariPool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000       # 30s: thời gian tối đa chờ lấy connection từ pool
+      idle-timeout: 600000            # 10 phút: connection idle bị thu hồi
+      max-lifetime: 1800000           # 30 phút: connection tối đa sống bao lâu
+      leak-detection-threshold: 15000 # 15s: cảnh báo nếu connection bị giữ > 15s (phát hiện connection leak)
   jpa:
     hibernate:
       ddl-auto: ${DDL_AUTO:update}
@@ -18,6 +29,7 @@ spring:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
   cache:
     type: redis
 
@@ -28,3 +40,44 @@ jwt:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:80,http://localhost}
+
+# B3: Spring Boot Actuator + Prometheus Metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose: health (public), info, metrics, prometheus (protected by security)
+        include: health, info, metrics, prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+  metrics:
+    tags:
+      # Tag mọi metric với application name — giúp filter trong Grafana khi có nhiều service
+      application: ${spring.application.name}
+    distribution:
+      # Percentile histogram cho HTTP requests — hiển thị p50, p95, p99 latency
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+
+# C1: AI Copilot & Read-Only Database Isolation Configuration
+ai:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/university_erp_db}
+    username: ${AI_DB_USERNAME:erp_ai_readonly_user}
+    password: ${AI_DB_PASSWORD:secure_ai_db_password}
+    driver-class-name: org.postgresql.Driver
+
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${OPENAI_API_KEY:demo}
+      model-name: gpt-4o-mini
+      temperature: 0.1
+      log-requests: false
+      log-responses: false
+

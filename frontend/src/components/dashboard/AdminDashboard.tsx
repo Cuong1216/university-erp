@@ -13,8 +13,10 @@ import {
   Legend,
 } from 'recharts';
 import { useDashboardStore } from '../../store/useDashboardStore';
+import { ForecastChart } from './ForecastChart';
 
 const COLORS = [
+
   '#3b82f6', // blue
   '#10b981', // emerald
   '#f59e0b', // amber
@@ -441,6 +443,10 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* C2: AI Predictive Salary Analytics (Time Series Forecast Chart) */}
+      <ForecastChart />
     </div>
   );
 };
+
