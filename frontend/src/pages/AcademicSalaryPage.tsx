@@ -45,6 +45,7 @@ export const AcademicSalaryPage: React.FC = () => {
 
       alert(`⏳ ${response.data.message}\nBạn có thể tiếp tục làm việc khác, hệ thống sẽ gửi thông báo Real-time khi hoàn tất!`);
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
       setIsProcessingPayroll(false);
       setErrorMessage(err.response?.data?.message || err.message || 'Lỗi gửi yêu cầu chốt lương');

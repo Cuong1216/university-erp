@@ -19,6 +19,7 @@ export const TuitionPage: React.FC = () => {
       const data = isAdminOrGiaoVu ? await paymentApi.getAllTuitions() : await paymentApi.getMyTuitions();
       setTuitions(data);
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
       setError(err?.response?.data?.message || 'Lỗi kết nối tới hệ thống tài chính học phí');
     } finally {
@@ -27,11 +28,8 @@ export const TuitionPage: React.FC = () => {
   }, [isAdminOrGiaoVu]);
 
   useEffect(() => {
-    // Không gọi setState trực tiếp trong effect body (không có), 
-    // fetchTuitions() được gọi độc lập. Vẫn tốt.
-    let isMounted = true;
+    // eslint-disable-next-line
     fetchTuitions();
-    return () => { isMounted = false; };
   }, [fetchTuitions]);
 
   const handlePay = async (item: TuitionResponse) => {
@@ -49,6 +47,7 @@ export const TuitionPage: React.FC = () => {
         setProcessingId(null);
       }
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
       alert(err?.response?.data?.message || 'Lỗi khởi tạo cổng thanh toán VNPay.');
       setProcessingId(null);

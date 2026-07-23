@@ -70,7 +70,8 @@ export const ForecastChart: React.FC = () => {
     try {
       const resp = await analyticsApi.getSalaryForecast(6);
       setData(resp);
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as any;
       setError(err?.response?.data?.message || 'Không thể tải dữ liệu dự báo chi phí từ AI Service.');
     } finally {
       setLoading(false);
@@ -78,6 +79,7 @@ export const ForecastChart: React.FC = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line
     fetchForecast();
   }, []);
 

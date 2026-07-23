@@ -66,6 +66,7 @@ export const useAiChatStore = create<AiChatState>((set) => ({
         loading: false,
       }));
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
       const errorMsg =
         err?.response?.data?.reply ||
