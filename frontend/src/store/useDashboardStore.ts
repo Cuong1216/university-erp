@@ -39,7 +39,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         selectedMonth: data.currentMonth,
         selectedYear: data.currentYear,
       });
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as any;
       const msg = err?.response?.data?.message || err?.message || 'Không thể tải dữ liệu thống kê Dashboard';
       set({ error: msg, loading: false });
     }

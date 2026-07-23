@@ -74,7 +74,4 @@ export const useWebSocket = ({ onNotificationReceived }: UseWebSocketProps) => {
     };
   }, [connect]);
 
-  return {
-    client: stompClientRef.current,
-  };
 };

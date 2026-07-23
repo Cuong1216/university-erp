@@ -44,7 +44,8 @@ export const AcademicSalaryPage: React.FC = () => {
       });
 
       alert(`⏳ ${response.data.message}\nBạn có thể tiếp tục làm việc khác, hệ thống sẽ gửi thông báo Real-time khi hoàn tất!`);
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as any;
       setIsProcessingPayroll(false);
       setErrorMessage(err.response?.data?.message || err.message || 'Lỗi gửi yêu cầu chốt lương');
       alert(`❌ Lỗi gửi yêu cầu: ${err.response?.data?.message || err.message}`);
@@ -70,7 +71,7 @@ export const AcademicSalaryPage: React.FC = () => {
       if (link.parentNode) {
         link.parentNode.removeChild(link);
       }
-    } catch (error) {
+    } catch {
       setErrorMessage('Chưa có dữ liệu bảng lương hoặc có lỗi khi tải Excel.');
     } finally {
       setExportLoading(false);

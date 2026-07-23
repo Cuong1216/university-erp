@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { paymentApi } from '../api/paymentApi';
 import type { TuitionResponse } from '../api/paymentApi';
 import { useAuthStore } from '../store/useAuthStore';
@@ -12,22 +12,27 @@ export const TuitionPage: React.FC = () => {
 
   const isAdminOrGiaoVu = roles.some((r) => ['ROLE_ADMIN', 'ROLE_GIAO_VU'].includes(r));
 
-  const fetchTuitions = async () => {
+  const fetchTuitions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = isAdminOrGiaoVu ? await paymentApi.getAllTuitions() : await paymentApi.getMyTuitions();
       setTuitions(data);
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as any;
       setError(err?.response?.data?.message || 'Lỗi kết nối tới hệ thống tài chính học phí');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdminOrGiaoVu]);
 
   useEffect(() => {
+    // Không gọi setState trực tiếp trong effect body (không có), 
+    // fetchTuitions() được gọi độc lập. Vẫn tốt.
+    let isMounted = true;
     fetchTuitions();
-  }, [isAdminOrGiaoVu]);
+    return () => { isMounted = false; };
+  }, [fetchTuitions]);
 
   const handlePay = async (item: TuitionResponse) => {
     setProcessingId(item.maHocPhi);
@@ -38,12 +43,13 @@ export const TuitionPage: React.FC = () => {
         returnUrl: window.location.origin + '/tuition/result',
       });
       if (resp && resp.paymentUrl) {
-        window.location.href = resp.paymentUrl;
+        window.location.assign(resp.paymentUrl);
       } else {
         alert('Không nhận được URL thanh toán VNPay.');
         setProcessingId(null);
       }
-    } catch (err: any) {
+    } catch (error) {
+      const err = error as any;
       alert(err?.response?.data?.message || 'Lỗi khởi tạo cổng thanh toán VNPay.');
       setProcessingId(null);
     }
