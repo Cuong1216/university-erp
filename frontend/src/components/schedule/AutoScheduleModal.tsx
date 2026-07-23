@@ -33,6 +33,7 @@ export const AutoScheduleModal: React.FC<AutoScheduleModalProps> = ({ isOpen, on
 
   useEffect(() => {
     if (isOpen && classes.length === 0) {
+      // eslint-disable-next-line
       loadSampleClasses();
     }
   }, [isOpen, classes.length]);
