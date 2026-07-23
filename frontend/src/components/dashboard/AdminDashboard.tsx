@@ -30,6 +30,7 @@ const COLORS = [
 ];
 
 // Custom Tooltip cho Line Chart
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomLineTooltip: React.FC<any> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
@@ -61,6 +62,7 @@ const CustomLineTooltip: React.FC<any> = ({ active, payload, label }) => {
 };
 
 // Custom Tooltip cho Pie Chart
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomPieTooltip: React.FC<any> = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;

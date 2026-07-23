@@ -65,9 +65,11 @@ export const useAiChatStore = create<AiChatState>((set) => ({
         messages: [...state.messages, botMessage],
         loading: false,
       }));
-    } catch (error: any) {
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
       const errorMsg =
-        error?.response?.data?.reply ||
+        err?.response?.data?.reply ||
         'Xin lỗi, kết nối tới máy chủ AI gặp sự cố. Vui lòng kiểm tra lại cấu hình API key hoặc kết nối mạng.';
       const errorMessage: ChatMessage = {
         id: `bot-err-${Date.now()}`,

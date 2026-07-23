@@ -77,8 +77,11 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         // Actuator health check: public (cho load balancer, Docker healthcheck)
                         .requestMatchers("/actuator/health").permitAll()
+                        // VNPay Webhook IPN & Return callback: public để cổng thanh toán gọi lại
+                        .requestMatchers("/api/v1/payment/vnpay-ipn", "/api/v1/payment/vnpay-return").permitAll()
                         // Tất cả các request còn lại phải được xác thực
                         .anyRequest().authenticated()
+
                 )
                 // RateLimitFilter chạy TRƯỚC JwtAuthenticationFilter
                 // → Block brute-force login trước khi xử lý JWT

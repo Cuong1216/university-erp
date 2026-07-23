@@ -39,7 +39,7 @@ jobs:
       - name: Run Maven Verification & Unit Tests
         run: |
           cd backend
-          mvn clean verify -DDB_URL=jdbc:postgresql://localhost:5432/university_erp_db -DDB_USERNAME=postgres -DDB_PASSWORD=postgrespassword -DDDL_AUTO=create-drop
+          mvn clean verify -DDB_URL=jdbc:postgresql://localhost:5432/university_erp_db -DDB_USERNAME=postgres -DDB_PASSWORD=postgrespassword -Dai.datasource.username=postgres -Dai.datasource.password=postgrespassword -DDDL_AUTO=create-drop
 
   build-frontend:
     name: Lint & Build React Vite Frontend (Quality Gate)

@@ -13,6 +13,7 @@ import {
 import { analyticsApi } from '../../api/analyticsApi';
 import type { SalaryForecastResponse } from '../../api/analyticsApi';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomForecastTooltip: React.FC<any> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
@@ -70,7 +71,9 @@ export const ForecastChart: React.FC = () => {
     try {
       const resp = await analyticsApi.getSalaryForecast(6);
       setData(resp);
-    } catch (err: any) {
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
       setError(err?.response?.data?.message || 'Không thể tải dữ liệu dự báo chi phí từ AI Service.');
     } finally {
       setLoading(false);
@@ -78,6 +81,7 @@ export const ForecastChart: React.FC = () => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line
     fetchForecast();
   }, []);
 

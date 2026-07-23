@@ -30,7 +30,9 @@ export const TeacherSalaryPage: React.FC = () => {
         setError(null);
         const response = await axiosClient.get('/luong/my-salary');
         setSalaries(response.data || []);
-      } catch (err: any) {
+      } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const err = error as any;
         setError(err.response?.data?.message || 'Không thể tải dữ liệu thù lao giảng dạy.');
       } finally {
         setLoading(false);

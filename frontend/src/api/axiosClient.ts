@@ -30,12 +30,17 @@ export const axiosClient = axios.create({
   },
 });
 
-// 1. Request Interceptor: Tự động gắn Authorization Bearer Token
+// 1. Request Interceptor: Tự động gắn Authorization Bearer Token & X-Tenant-ID
 axiosClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = useAuthStore.getState().accessToken;
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (config.headers) {
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      // Đọc tenantId từ localStorage (nếu có, ví dụ do người dùng chọn trường đại học khi đăng nhập)
+      const tenantId = localStorage.getItem('tenantId') || 'public';
+      config.headers['X-Tenant-ID'] = tenantId;
     }
     return config;
   },

@@ -7,6 +7,7 @@ export interface WebSocketNotification {
   type: 'CHOT_LUONG_SUCCESS' | 'CHOT_LUONG_ERROR' | string;
   status: 'SUCCESS' | 'ERROR' | string;
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
   timestamp: number;
 }
@@ -25,6 +26,7 @@ export const useWebSocket = ({ onNotificationReceived }: UseWebSocketProps) => {
     const socket = new SockJS('http://localhost:8080/ws');
 
     const stompClient = new Client({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       webSocketFactory: () => socket as any,
       connectHeaders: {
         Authorization: `Bearer ${accessToken}`,
@@ -74,7 +76,4 @@ export const useWebSocket = ({ onNotificationReceived }: UseWebSocketProps) => {
     };
   }, [connect]);
 
-  return {
-    client: stompClientRef.current,
-  };
 };

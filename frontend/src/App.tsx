@@ -12,6 +12,8 @@ import { StudentGradesPage } from './pages/StudentGradesPage';
 import { TeacherSalaryPage } from './pages/TeacherSalaryPage';
 import { AcademicSalaryPage } from './pages/AcademicSalaryPage';
 import { SalaryConfigPage, UsersListPage, RolesListPage } from './pages/admin';
+import { TuitionPage } from './pages/TuitionPage';
+import { TuitionResultPage } from './pages/TuitionResultPage';
 import { ErpCopilotDrawer } from './components/ai/ErpCopilotDrawer';
 import { setOnUnauthorizedCallback } from './api/axiosClient';
 
@@ -99,6 +101,24 @@ const MainLayout: React.FC = () => (
           element={
             <ProtectedRoute allowedRoles="ROLE_ADMIN">
               <RolesListPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tuition"
+          element={
+            <ProtectedRoute allowedRoles={['ROLE_SINH_VIEN', 'ROLE_ADMIN', 'ROLE_GIAO_VU']}>
+              <TuitionPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/tuition/result"
+          element={
+            <ProtectedRoute>
+              <TuitionResultPage />
             </ProtectedRoute>
           }
         />

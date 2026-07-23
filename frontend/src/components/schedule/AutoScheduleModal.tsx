@@ -19,14 +19,6 @@ export const AutoScheduleModal: React.FC<AutoScheduleModalProps> = ({ isOpen, on
   const [selectedDays, setSelectedDays] = useState<number[]>([2, 3, 4, 5, 6, 7]);
   const [selectedPeriods, setSelectedPeriods] = useState<number[]>([1, 4, 7, 10]);
 
-  useEffect(() => {
-    if (isOpen && classes.length === 0) {
-      loadSampleClasses();
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   const loadSampleClasses = async () => {
     setLoadingSample(true);
     try {
@@ -38,6 +30,17 @@ export const AutoScheduleModal: React.FC<AutoScheduleModalProps> = ({ isOpen, on
       setLoadingSample(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && classes.length === 0) {
+      // eslint-disable-next-line
+      loadSampleClasses();
+    }
+  }, [isOpen, classes.length]);
+
+  if (!isOpen) return null;
+
+
 
   const handleToggleDay = (day: number) => {
     if (selectedDays.includes(day)) {
@@ -66,7 +69,9 @@ export const AutoScheduleModal: React.FC<AutoScheduleModalProps> = ({ isOpen, on
         startPeriods: selectedPeriods,
       });
       setResult(resp);
-    } catch (err: any) {
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
       setError(err?.response?.data?.message || 'Lỗi kết nối tới dịch vụ AI Schedule Optimization Solver.');
     } finally {
       setSolving(false);

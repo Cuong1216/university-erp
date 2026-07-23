@@ -39,7 +39,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         selectedMonth: data.currentMonth,
         selectedYear: data.currentYear,
       });
-    } catch (err: any) {
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
       const msg = err?.response?.data?.message || err?.message || 'Không thể tải dữ liệu thống kê Dashboard';
       set({ error: msg, loading: false });
     }
