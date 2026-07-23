@@ -46,6 +46,14 @@ export const SIDEBAR_MENU_CONFIG: MenuItem[] = [
     allowedRoles: ['ROLE_SINH_VIEN', 'ROLE_GIANG_VIEN', 'ROLE_GIAO_VU'],
   },
   {
+    key: 'tuition',
+    label: 'Tra cứu & Nộp học phí VNPay',
+    path: '/tuition',
+    icon: 'CreditCard',
+    allowedRoles: ['ROLE_SINH_VIEN', 'ROLE_ADMIN', 'ROLE_GIAO_VU'],
+  },
+
+  {
     key: 'academic_salary_management',
     label: 'Quản lý thù lao & Xuất Excel',
     path: '/academic/salary-management',

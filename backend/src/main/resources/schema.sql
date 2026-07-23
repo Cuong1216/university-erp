@@ -452,3 +452,65 @@ GRANT USAGE ON SCHEMA public TO erp_ai_readonly_user;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO erp_ai_readonly_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO erp_ai_readonly_user;
 
+-- ==============================================================================
+-- PHẦN 6: SPRINT 4 - SAAS COMMERCIALIZATION & TUITION PAYMENT DEFENSE
+-- ==============================================================================
+
+-- Bảng học phí sinh viên theo học kỳ
+CREATE TABLE IF NOT EXISTS hoc_phi (
+    ma_hoc_phi VARCHAR(30) PRIMARY KEY,
+    ma_sv VARCHAR(20) NOT NULL REFERENCES sinh_vien(ma_sv),
+    nam_hoc VARCHAR(20) NOT NULL,
+    hoc_ky INT NOT NULL,
+    so_tien_phai_nop NUMERIC(15,2) NOT NULL,
+    so_tien_da_nop NUMERIC(15,2) DEFAULT 0,
+    trang_thai VARCHAR(30) NOT NULL, -- CHUA_NOP, NOP_MOT_PHAN, DA_NOP_DU
+    han_nop TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng ghi nhận giao dịch thanh toán qua cổng VNPay (có khóa vật lý chống Webhook Idempotency & Race Condition)
+CREATE TABLE IF NOT EXISTS thanh_toan_log (
+    id BIGSERIAL PRIMARY KEY,
+    ma_hoc_phi VARCHAR(30) NOT NULL REFERENCES hoc_phi(ma_hoc_phi),
+    vnp_txn_ref VARCHAR(100) NOT NULL UNIQUE, -- KHÓA VẬT LÝ CHỐNG RACE CONDITION / IDEMPOTENCY
+    vnp_amount NUMERIC(15,2) NOT NULL,
+    vnp_order_info TEXT,
+    vnp_transaction_no VARCHAR(100),
+    vnp_bank_code VARCHAR(50),
+    vnp_pay_date VARCHAR(20),
+    vnp_response_code VARCHAR(10),
+    vnp_transaction_status VARCHAR(10),
+    vnp_secure_hash TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_hoc_phi_ma_sv ON hoc_phi(ma_sv, nam_hoc, hoc_ky);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_thanh_toan_log_txn_ref ON thanh_toan_log(vnp_txn_ref);
+
+-- Cấp quyền SELECT thêm cho AI Read-only User
+GRANT SELECT ON hoc_phi TO erp_ai_readonly_user;
+GRANT SELECT ON thanh_toan_log TO erp_ai_readonly_user;
+
+-- Seed dữ liệu mẫu học phí cho các sinh viên SV001 -> SV010
+INSERT INTO hoc_phi (ma_hoc_phi, ma_sv, nam_hoc, hoc_ky, so_tien_phai_nop, so_tien_da_nop, trang_thai, han_nop)
+SELECT 
+    'HP-20261-SV00' || i,
+    'SV00' || i,
+    '2026-2027',
+    1,
+    8500000.00 + (i * 150000.00),
+    0.00,
+    'CHUA_NOP',
+    CURRENT_TIMESTAMP + interval '30 day'
+FROM generate_series(1, 9) AS i
+ON CONFLICT (ma_hoc_phi) DO NOTHING;
+
+INSERT INTO hoc_phi (ma_hoc_phi, ma_sv, nam_hoc, hoc_ky, so_tien_phai_nop, so_tien_da_nop, trang_thai, han_nop)
+VALUES 
+('HP-20261-SV010', 'SV010', '2026-2027', 1, 9500000.00, 9500000.00, 'DA_NOP_DU', CURRENT_TIMESTAMP + interval '30 day')
+ON CONFLICT (ma_hoc_phi) DO NOTHING;
+
+
