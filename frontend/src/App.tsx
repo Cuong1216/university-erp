@@ -12,6 +12,7 @@ import { StudentGradesPage } from './pages/StudentGradesPage';
 import { TeacherSalaryPage } from './pages/TeacherSalaryPage';
 import { AcademicSalaryPage } from './pages/AcademicSalaryPage';
 import { SalaryConfigPage, UsersListPage, RolesListPage } from './pages/admin';
+import { ErpCopilotDrawer } from './components/ai/ErpCopilotDrawer';
 import { setOnUnauthorizedCallback } from './api/axiosClient';
 
 const AxiosInterceptorSetup: React.FC = () => {
@@ -33,6 +34,7 @@ const MainLayout: React.FC = () => (
         
         <Route
           path="/student/grades"
+
           element={
             <ProtectedRoute allowedRoles="ROLE_SINH_VIEN">
               <StudentGradesPage />
@@ -104,8 +106,10 @@ const MainLayout: React.FC = () => (
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </main>
+    <ErpCopilotDrawer />
   </div>
 );
+
 
 export const App: React.FC = () => {
   const initAuth = useAuthStore((state) => state.initAuth);

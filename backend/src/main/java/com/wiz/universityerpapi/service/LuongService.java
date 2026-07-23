@@ -34,10 +34,11 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import java.util.concurrent.CompletableFuture;
 
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class LuongService {
+public class LuongService implements ILuongService {
 
     private final CauHinhLuongRepository cauHinhLuongRepository;
     private final NhatKyGiangDayRepository nhatKyGiangDayRepository;
@@ -45,6 +46,7 @@ public class LuongService {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final IDashboardService dashboardService;
 
     @Transactional
     @LogAuditAction(actionType = "CHOT_LUONG_THANG", entityName = "BangLuongThang", idExpression = "#result.maBangLuong")
@@ -151,6 +153,9 @@ public class LuongService {
                 .map(NhatKyGiangDay::getMaNhatKy)
                 .collect(Collectors.toList());
         nhatKyGiangDayRepository.markAsPaid(maBangLuong, maNhatKyList);
+
+        // 6. Invalidate dashboard cache để dashboard phản ánh dữ liệu lương mới ngay lập tức
+        dashboardService.invalidateDashboardCache();
 
         return ChotLuongResponseDTO.builder()
                 .maBangLuong(savedBangLuong.getMaBangLuong())

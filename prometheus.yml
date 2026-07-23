@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s       # Scrape metrics mỗi 15 giây
+  evaluation_interval: 15s   # Đánh giá rules mỗi 15 giây
+
+scrape_configs:
+  # Scrape Spring Boot backend qua /actuator/prometheus
+  - job_name: 'university-erp-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8080']
+    # Label thêm vào mọi metric từ job này
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'erp-backend'
+
+  # Scrape chính Prometheus (self-monitoring)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

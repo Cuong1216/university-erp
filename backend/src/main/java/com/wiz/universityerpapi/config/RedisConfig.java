@@ -15,6 +15,8 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @EnableCaching
@@ -55,14 +57,31 @@ public class RedisConfig {
 
         GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
-        RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofDays(1))
+        // Cấu hình mặc định: dự phòng cho các cache không khai báo riêng
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofHours(1))
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
                 .disableCachingNullValues();
 
+        // Per-cache TTL — mỗi cache có vòng đời phù hợp với tần suất thay đổi dữ liệu
+        Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
+
+        // Dashboard: dữ liệu tổng hợp, thay đổi khi có chốt lương mới → 5 phút
+        cacheConfigurations.put("dashboard_stats", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+
+        // Danh mục tổ chức: ít thay đổi, admin mới sửa → 12 giờ
+        cacheConfigurations.put("khoa", defaultConfig.entryTtl(Duration.ofHours(12)));
+        cacheConfigurations.put("bo_mon", defaultConfig.entryTtl(Duration.ofHours(12)));
+        cacheConfigurations.put("chuc_danh", defaultConfig.entryTtl(Duration.ofHours(12)));
+        cacheConfigurations.put("hoc_vi", defaultConfig.entryTtl(Duration.ofHours(12)));
+
+        // Cấu hình lương: chỉ đổi theo năm học → 24 giờ
+        cacheConfigurations.put("cau_hinh_luong", defaultConfig.entryTtl(Duration.ofHours(24)));
+
         return RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(config)
+                .cacheDefaults(defaultConfig)
+                .withInitialCacheConfigurations(cacheConfigurations)
                 .build();
     }
 }
