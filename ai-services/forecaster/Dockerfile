@@ -6,6 +6,13 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+ENV SEMESTER1_MONTHS="9,10" \
+    SEMESTER1_MULTIPLIER="1.12" \
+    SEMESTER2_MONTHS="2,3" \
+    SEMESTER2_MULTIPLIER="1.08" \
+    SUMMER_MONTHS="6,7" \
+    SUMMER_MULTIPLIER="0.92"
+
 # Install required OS dependencies for numpy/pandas/prophet build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
