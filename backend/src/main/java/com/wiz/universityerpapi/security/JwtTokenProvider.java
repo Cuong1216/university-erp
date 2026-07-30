@@ -23,7 +23,7 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}") // Default 24 hours in milliseconds
+    @Value("${jwt.expiration:900000}") // Default 15 minutes in milliseconds
     private long jwtExpiration;
 
     private SecretKey signingKey;
@@ -58,6 +58,10 @@ public class JwtTokenProvider {
                 .expiration(expiryDate)
                 .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();
+    }
+
+    public String generateRefreshToken() {
+        return UUID.randomUUID().toString();
     }
 
     private Claims parseClaims(String token) {

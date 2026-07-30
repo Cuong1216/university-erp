@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginResponseDTO {
     private String token;
+    private String refreshToken;
     @Builder.Default
     private String tokenType = "Bearer";
     private UUID userId;

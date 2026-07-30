@@ -74,6 +74,39 @@ axiosClient.interceptors.response.use(
 
     if (status) {
       if (status === 401) {
+        const originalRequest = config;
+        const refreshToken = useAuthStore.getState().refreshToken;
+
+        // Bỏ qua retry nếu API lỗi là /auth/refresh để tránh loop vô hạn
+        if (originalRequest.url !== '/auth/refresh' && refreshToken && !isRedirectingToLogin) {
+          try {
+            const res = await axios.post(`${getBaseUrl()}/auth/refresh`, { refreshToken });
+            const { token, refreshToken: newRefreshToken } = res.data;
+            useAuthStore.getState().setTokens(token, newRefreshToken);
+            
+            // Gắn lại token mới và retry request
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return axiosClient(originalRequest);
+          } catch (refreshError) {
+            // Refresh thất bại => logout
+            if (!isRedirectingToLogin) {
+              isRedirectingToLogin = true;
+              useAuthStore.getState().logout();
+              if (onUnauthorizedCallback) {
+                onUnauthorizedCallback();
+              } else if (window.location.pathname !== '/login') {
+                window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+              }
+              setTimeout(() => {
+                isRedirectingToLogin = false;
+              }, 1000);
+            }
+            return Promise.reject(refreshError);
+          }
+        }
+
         if (!isRedirectingToLogin) {
           isRedirectingToLogin = true;
           

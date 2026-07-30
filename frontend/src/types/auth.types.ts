@@ -21,13 +21,15 @@ export interface JwtPayload {
 export interface AuthState {
   isLoggedIn: boolean;
   accessToken: string | null;
+  refreshToken: string | null;
   userInfo: UserInfo | null;
   roles: RoleType[];
   isInitialized: boolean;
 }
 
 export interface AuthActions {
-  setToken: (token: string) => void;
+  setToken: (token: string, refreshToken?: string) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
   logout: () => void;
   initAuth: () => void;
   hasRole: (allowedRoles?: RoleType | RoleType[]) => boolean;

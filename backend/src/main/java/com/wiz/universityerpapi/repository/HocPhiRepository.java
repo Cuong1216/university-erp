@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface HocPhiRepository extends JpaRepository<HocPhi, String> {
     List<HocPhi> findByMaSv(String maSv);
+
     List<HocPhi> findByMaSvAndNamHocAndHocKy(String maSv, String namHoc, Integer hocKy);
 }

@@ -29,7 +29,7 @@ public class DatabaseQueryTool {
     }
 
     @Tool("Thực thi câu lệnh SQL SELECT (đọc dữ liệu) trên cơ sở dữ liệu PostgreSQL để trả lời câu hỏi của người dùng. Chỉ nhận câu lệnh SELECT hợp lệ.")
-    @LogAuditAction(actionType = "AI_QUERY")
+    @LogAuditAction(actionType = "AI_QUERY", entityName = "AI")
     public String executeReadOnlyQuery(String sqlQuery) {
         if (sqlQuery == null || sqlQuery.trim().isEmpty()) {
             return "Lỗi: Câu lệnh SQL bị trống.";
