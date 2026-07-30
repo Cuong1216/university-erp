@@ -41,6 +41,7 @@ public class ScheduleOptimizationDTOs {
         private String status; // OPTIMAL, FEASIBLE, GREEDY_FALLBACK, INFEASIBLE
         private String solverEngine;
         private double solveTimeSeconds;
+        private int batchCount;
         private int totalClassesScheduled;
         private List<ScheduledSlotDTO> scheduledSlots;
         private String message;

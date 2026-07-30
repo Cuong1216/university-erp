@@ -8,6 +8,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_15-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD_Pipeline-GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
+[![CI/CD Status](https://img.shields.io/github/actions/workflow/status/Cuong1216/university-erp/ci.yml?branch=main&style=for-the-badge&logo=github)](https://github.com/Cuong1216/university-erp/actions)
 
 **A comprehensive, production-ready University Enterprise Resource Planning (ERP) platform architected with clean domain-driven design, zero N+1 database queries, robust JWT RBAC security, and multi-stage containerized deployment.**
 
@@ -71,6 +72,13 @@ The application follows an **Enterprise Monorepo Architecture** unifying a Java 
 ### 5. 🚀 DevOps, Multi-Stage Builds & Automated CI/CD
 * **Multi-Stage Containerization:** Built highly compact Docker images using layered builds (`maven:3.9.9-eclipse-temurin-17-alpine` ➔ `eclipse-temurin:17-jre-alpine` running as a non-root `spring:spring` user; and `node:18-alpine` ➔ `nginx:alpine` with Gzip asset compression).
 * **Automated TDD Quality Gate:** Integrated GitHub Actions (`.github/workflows/ci.yml`) spinning up ephemeral PostgreSQL containers to execute full `mvn clean verify` unit/integration test suites alongside React TypeScript compilation and `ESLint` style validations on every commit.
+* **Full CI/CD Pipeline:** Includes Deploy Stages to Staging and Production with Security Scan & Smoke tests.
+* **Required GitHub Secrets** (Must be configured in repository settings):
+  - `GHCR_TOKEN`: GitHub Container Registry token to push Docker images.
+  - `SSH_STAGING_KEY`: Private SSH key for Staging server access.
+  - `STAGING_HOST`: IP/Domain of the Staging server.
+  - `SSH_PROD_KEY`: Private SSH key for Production server access.
+  - `PROD_HOST`: IP/Domain of the Production server.
 
 ---
 

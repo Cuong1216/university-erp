@@ -63,6 +63,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-erp_redis_secret_2024}
       AI_FORECASTER_URL: http://salary-forecaster-ai:8001/forecast
+      WEBSOCKET_BROKER_HOST: activemq
     depends_on:
       postgres:
         condition: service_healthy
@@ -140,11 +141,27 @@ services:
   salary-forecaster-ai:
     build:
       context: ./ai-services/forecaster
-      dockerfile: Dockerfile
     container_name: erp-salary-forecaster-ai
     restart: always
     ports:
       - "8001:8001"
+    networks:
+      - erp-network
+
+  # ==========================================
+  # Service 8: ActiveMQ Message Broker
+  # ==========================================
+  activemq:
+    image: apache/activemq-classic:5.18.3
+    container_name: erp-activemq
+    restart: always
+    ports:
+      - "61616:61616"  # JMS
+      - "61613:61613"  # STOMP
+      - "8161:8161"    # Web Console
+    environment:
+      ACTIVEMQ_ADMIN_LOGIN: ${ACTIVEMQ_LOGIN:-admin}
+      ACTIVEMQ_ADMIN_PASSWORD: ${ACTIVEMQ_PASSWORD:-admin123}
     networks:
       - erp-network
 

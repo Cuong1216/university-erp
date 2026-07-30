@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.wiz.universityerpapi.security.AuthorizationConstants;
 
 import java.util.Map;
 
@@ -18,7 +19,7 @@ public class SaaSController {
     private final TenantOnboardingService tenantOnboardingService;
 
     @PostMapping("/tenants/{tenantId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize(AuthorizationConstants.ADMIN_ONLY)
     public ResponseEntity<?> onboardTenant(@PathVariable String tenantId) {
         log.info("REST POST /api/v1/saas/tenants/{} - Khởi tạo môi trường SaaS mới", tenantId);
         try {
