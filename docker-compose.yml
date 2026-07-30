@@ -22,7 +22,29 @@ services:
       retries: 5
     networks:
       - erp-network
+
   # ==========================================
+  # Service 1B: PostgreSQL 15 Read Replica (Simulated)
+  # ==========================================
+  postgres-replica:
+    image: postgres:15-alpine
+    container_name: erp-postgres-replica
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-university_erp_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-54342}
+    # Trong production: dùng streaming replication thực sự thay vì init script độc lập
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./sql/init_database.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-university_erp_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - erp-network
   # Service 2: Redis Caching Layer
   # ==========================================
   redis:
@@ -53,7 +75,8 @@ services:
     restart: always
     environment:
       # Kết nối tới postgres thông qua hostname 'postgres' (service name) và port 5432
-      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-university_erp_db}
+      DB_WRITE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-university_erp_db}
+      DB_READ_URL: jdbc:postgresql://postgres-replica:5432/${POSTGRES_DB:-university_erp_db}
       DB_USERNAME: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-54342}
       DDL_AUTO: validate
@@ -66,6 +89,8 @@ services:
       WEBSOCKET_BROKER_HOST: activemq
     depends_on:
       postgres:
+        condition: service_healthy
+      postgres-replica:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -171,6 +196,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  postgres_replica_data:
     driver: local
   redis_data:
     driver: local

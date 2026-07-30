@@ -8,6 +8,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Slf4j
 @Component
@@ -15,7 +16,7 @@ public class MultiTenantConnectionProviderImpl implements MultiTenantConnectionP
 
     private final DataSource dataSource;
 
-    public MultiTenantConnectionProviderImpl(DataSource dataSource) {
+    public MultiTenantConnectionProviderImpl(@Qualifier("routingDataSource") DataSource dataSource) {
         this.dataSource = dataSource;
     }
 
