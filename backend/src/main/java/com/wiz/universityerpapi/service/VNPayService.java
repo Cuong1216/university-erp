@@ -43,8 +43,10 @@ public class VNPayService {
     }
 
     private TuitionResponseDTO toTuitionResponseDTO(HocPhi h) {
-        BigDecimal conLai = h.getSoTienPhaiNop().subtract(h.getSoTienDaNop() != null ? h.getSoTienDaNop() : BigDecimal.ZERO);
-        if (conLai.compareTo(BigDecimal.ZERO) < 0) conLai = BigDecimal.ZERO;
+        BigDecimal conLai = h.getSoTienPhaiNop()
+                .subtract(h.getSoTienDaNop() != null ? h.getSoTienDaNop() : BigDecimal.ZERO);
+        if (conLai.compareTo(BigDecimal.ZERO) < 0)
+            conLai = BigDecimal.ZERO;
         return TuitionResponseDTO.builder()
                 .maHocPhi(h.getMaHocPhi())
                 .maSv(h.getMaSv())
@@ -60,11 +62,13 @@ public class VNPayService {
 
     public CreatePaymentUrlResponseDTO createPaymentUrl(CreatePaymentUrlRequestDTO request) {
         HocPhi hocPhi = hocPhiRepository.findById(request.getMaHocPhi())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin học phí: " + request.getMaHocPhi()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy thông tin học phí: " + request.getMaHocPhi()));
 
         BigDecimal amountToPay = request.getAmount();
         if (amountToPay == null || amountToPay.compareTo(BigDecimal.ZERO) <= 0) {
-            amountToPay = hocPhi.getSoTienPhaiNop().subtract(hocPhi.getSoTienDaNop() != null ? hocPhi.getSoTienDaNop() : BigDecimal.ZERO);
+            amountToPay = hocPhi.getSoTienPhaiNop()
+                    .subtract(hocPhi.getSoTienDaNop() != null ? hocPhi.getSoTienDaNop() : BigDecimal.ZERO);
         }
 
         // VNPay số tiền tính bằng đơn vị VND * 100
@@ -78,12 +82,14 @@ public class VNPayService {
         vnpParams.put("vnp_Amount", String.valueOf(amountVal));
         vnpParams.put("vnp_CurrCode", "VND");
         vnpParams.put("vnp_TxnRef", vnpTxnRef);
-        vnpParams.put("vnp_OrderInfo", "Thanh toan hoc phi " + hocPhi.getMaHocPhi() + " cho sinh vien " + hocPhi.getMaSv());
+        vnpParams.put("vnp_OrderInfo",
+                "Thanh toan hoc phi " + hocPhi.getMaHocPhi() + " cho sinh vien " + hocPhi.getMaSv());
         vnpParams.put("vnp_OrderType", "tuition");
         vnpParams.put("vnp_Locale", "vn");
 
         String returnUrl = request.getReturnUrl() != null && !request.getReturnUrl().isEmpty()
-                ? request.getReturnUrl() : vnpayConfig.getVnpReturnUrl();
+                ? request.getReturnUrl()
+                : vnpayConfig.getVnpReturnUrl();
         vnpParams.put("vnp_ReturnUrl", returnUrl);
         vnpParams.put("vnp_IpAddr", request.getIpAddress() != null ? request.getIpAddress() : "127.0.0.1");
 
@@ -137,8 +143,10 @@ public class VNPayService {
     /**
      * Xử lý Webhook callback (IPN - Instant Payment Notification) từ VNPay.
      * Bảo đảm an toàn tuyệt đối với 2 lớp phòng ngự:
-     * 1. Transaction Isolation Level = SERIALIZABLE (chống race condition giữa 2 luồng xử lý đồng thời).
-     * 2. Idempotency Check bằng cột vnp_txn_ref UNIQUE + catch DataIntegrityViolationException.
+     * 1. Transaction Isolation Level = SERIALIZABLE (chống race condition giữa 2
+     * luồng xử lý đồng thời).
+     * 2. Idempotency Check bằng cột vnp_txn_ref UNIQUE + catch
+     * DataIntegrityViolationException.
      */
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public VNPayWebhookResponseDTO processWebhookCallback(Map<String, String> params) {
@@ -152,7 +160,8 @@ public class VNPayService {
 
         String calculatedHash = VNPayUtil.hashAllFields(fields, vnpayConfig.getVnpHashSecret());
         if (!calculatedHash.equalsIgnoreCase(vnpSecureHash)) {
-            log.warn("CẢNH BÁO: Chữ ký Webhook VNPay không hợp lệ! Expected={}, Actual={}", calculatedHash, vnpSecureHash);
+            log.warn("CẢNH BÁO: Chữ ký Webhook VNPay không hợp lệ! Expected={}, Actual={}", calculatedHash,
+                    vnpSecureHash);
             return new VNPayWebhookResponseDTO("97", "Invalid Checksum");
         }
 
@@ -161,7 +170,8 @@ public class VNPayService {
             return new VNPayWebhookResponseDTO("99", "Invalid TxnRef format");
         }
 
-        // 2. IDEMPOTENCY DEFENSE: Kiểm tra giao dịch đã được xử lý thành công trước đó hay chưa
+        // 2. IDEMPOTENCY DEFENSE: Kiểm tra giao dịch đã được xử lý thành công trước đó
+        // hay chưa
         if (thanhToanLogRepository.existsByVnpTxnRef(vnpTxnRef)) {
             log.info("IDEMPOTENCY SKIP: Giao dịch TxnRef={} đã được ghi nhận trước đó. Bỏ qua xử lý lặp.", vnpTxnRef);
             return new VNPayWebhookResponseDTO("02", "Order already confirmed");
@@ -194,11 +204,14 @@ public class VNPayService {
 
             thanhToanLogRepository.saveAndFlush(logEntry);
         } catch (DataIntegrityViolationException ex) {
-            log.warn("RACE CONDITION BLOCKED: Giao dịch TxnRef={} vừa được luồng khác ghi nhận. Trả về mã 02 Idempotent.", vnpTxnRef);
+            log.warn(
+                    "RACE CONDITION BLOCKED: Giao dịch TxnRef={} vừa được luồng khác ghi nhận. Trả về mã 02 Idempotent.",
+                    vnpTxnRef);
             return new VNPayWebhookResponseDTO("02", "Order already confirmed");
         }
 
-        // 4. Cập nhật số tiền và trạng thái học phí nếu thanh toán thành công (RspCode == "00")
+        // 4. Cập nhật số tiền và trạng thái học phí nếu thanh toán thành công (RspCode
+        // == "00")
         String responseCode = params.get("vnp_ResponseCode");
         if ("00".equals(responseCode)) {
             BigDecimal currentPaid = hocPhi.getSoTienDaNop() != null ? hocPhi.getSoTienDaNop() : BigDecimal.ZERO;
@@ -211,10 +224,11 @@ public class VNPayService {
                 hocPhi.setTrangThai("NOP_MOT_PHAN");
             }
             hocPhiRepository.save(hocPhi);
-            log.info("Cập nhật thành công học phí {} cho sinh viên {}. Số tiền thanh toán: {} VNĐ", 
+            log.info("Cập nhật thành công học phí {} cho sinh viên {}. Số tiền thanh toán: {} VNĐ",
                     maHocPhi, hocPhi.getMaSv(), vnpAmount);
         } else {
-            log.info("Giao dịch TxnRef={} không thành công hoặc bị hủy. Mã phản hồi VNPay: {}", vnpTxnRef, responseCode);
+            log.info("Giao dịch TxnRef={} không thành công hoặc bị hủy. Mã phản hồi VNPay: {}", vnpTxnRef,
+                    responseCode);
         }
 
         return new VNPayWebhookResponseDTO("00", "Confirm Success");

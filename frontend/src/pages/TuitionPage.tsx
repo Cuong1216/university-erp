@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { paymentApi } from '../api/paymentApi';
 import type { TuitionResponse } from '../api/paymentApi';
 import { useAuthStore } from '../store/useAuthStore';
+import { Badge } from '../components/common/Badge';
+import { Card } from '../components/common/Card';
+import { Button } from '../components/common/Button';
 
 export const TuitionPage: React.FC = () => {
   const { roles } = useAuthStore();
@@ -9,6 +12,9 @@ export const TuitionPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
   const isAdminOrGiaoVu = roles.some((r) => ['ROLE_ADMIN', 'ROLE_GIAO_VU'].includes(r));
 
@@ -16,8 +22,11 @@ export const TuitionPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = isAdminOrGiaoVu ? await paymentApi.getAllTuitions() : await paymentApi.getMyTuitions();
-      setTuitions(data);
+      const data = isAdminOrGiaoVu 
+        ? await paymentApi.getAllTuitions(currentPage, pageSize) 
+        : await paymentApi.getMyTuitions(currentPage, pageSize);
+      setTuitions(data.content);
+      setTotalPages(data.totalPages);
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
@@ -25,7 +34,7 @@ export const TuitionPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdminOrGiaoVu]);
+  }, [isAdminOrGiaoVu, currentPage, pageSize]);
 
   useEffect(() => {
     // eslint-disable-next-line
@@ -57,90 +66,109 @@ export const TuitionPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'DA_NOP_DU':
-        return <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: 20, fontWeight: 700, fontSize: 12 }}>✓ Đã Nộp Đủ</span>;
+        return <Badge variant="success">✓ Đã Nộp Đủ</Badge>;
       case 'NOP_MOT_PHAN':
-        return <span style={{ backgroundColor: '#fef9c3', color: '#854d0e', padding: '4px 12px', borderRadius: 20, fontWeight: 700, fontSize: 12 }}>⏳ Nộp Một Phần</span>;
+        return <Badge variant="warning">⏳ Nộp Một Phần</Badge>;
       default:
-        return <span style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '4px 12px', borderRadius: 20, fontWeight: 700, fontSize: 12 }}>⚠️ Chưa Nộp</span>;
+        return <Badge variant="danger">⚠️ Chưa Nộp</Badge>;
     }
   };
 
   return (
-    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+    <div style={{ fontFamily: 'var(--sans)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
         <div>
-          <h1 style={{ margin: 0, color: '#0f172a', fontSize: 26, fontWeight: 800 }}>
+          <h1 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: 'var(--font-size-xl)', fontWeight: 800 }}>
             💳 Cổng Tra Cứu & Thanh Toán Học Phí Trực Tuyến
           </h1>
-          <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: 14 }}>
+          <p style={{ margin: 'var(--space-xs) 0 0 0', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-base)' }}>
             Tích hợp cổng thanh toán VNPay với cơ chế phòng thủ Webhook Idempotency & chữ ký bảo mật HMAC SHA512.
           </p>
         </div>
-        <button
-          onClick={fetchTuitions}
-          style={{ padding: '8px 16px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
-        >
+        <Button onClick={fetchTuitions}>
           🔄 Làm mới dữ liệu
-        </button>
+        </Button>
       </div>
 
       {loading ? (
-        <div style={{ padding: 60, textAlign: 'center', color: '#64748b', fontSize: 15 }}>Đang tải danh sách học phí...</div>
+        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '15px' }}>Đang tải danh sách học phí...</div>
       ) : error ? (
-        <div style={{ padding: 24, backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, color: '#991b1b' }}>
+        <div style={{ padding: 'var(--space-lg)', backgroundColor: 'var(--color-danger-light)', border: '1px solid #fecaca', borderRadius: 'var(--radius-lg)', color: 'var(--color-danger)' }}>
           <h4>⚠️ Lỗi tải dữ liệu học phí</h4>
           <p>{error}</p>
         </div>
       ) : tuitions.length === 0 ? (
-        <div style={{ padding: 48, textAlign: 'center', backgroundColor: '#fff', borderRadius: 12, border: '1px dashed #cbd5e1', color: '#64748b' }}>
+        <div style={{ padding: '48px', textAlign: 'center', backgroundColor: 'var(--color-bg-card)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--color-border)', color: 'var(--color-text-secondary)' }}>
           Chưa có thông báo nộp học phí nào trong học kỳ này.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 20 }}>
-          {tuitions.map((t) => (
-            <div key={t.maHocPhi} style={{ backgroundColor: '#fff', padding: 22, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#3b82f6', backgroundColor: '#eff6ff', padding: '3px 10px', borderRadius: 6 }}>{t.maHocPhi}</span>
-                  {getStatusBadge(t.trangThai)}
-                </div>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: 18, color: '#0f172a' }}>Học Kỳ {t.hocKy} - Năm học {t.namHoc}</h3>
-                <p style={{ margin: '0 0 16px 0', fontSize: 13, color: '#64748b' }}>Mã SV: <strong style={{ color: '#1e293b' }}>{t.maSv}</strong></p>
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
+            {tuitions.map((t) => (
+              <Card key={t.maHocPhi}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--color-primary)', backgroundColor: 'var(--color-primary-light)', padding: '3px 10px', borderRadius: 'var(--radius-sm)' }}>{t.maHocPhi}</span>
+                    {getStatusBadge(t.trangThai)}
+                  </div>
+                  <h3 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-lg)', color: 'var(--color-text-primary)' }}>Học Kỳ {t.hocKy} - Năm học {t.namHoc}</h3>
+                  <p style={{ margin: '0 0 16px 0', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>Mã SV: <strong style={{ color: '#1e293b' }}>{t.maSv}</strong></p>
 
-                <div style={{ backgroundColor: '#f8fafc', padding: 14, borderRadius: 8, border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Tổng học phí:</span>
-                    <strong style={{ color: '#0f172a' }}>{Number(t.soTienPhaiNop).toLocaleString('vi-VN')} VNĐ</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Đã thanh toán:</span>
-                    <strong style={{ color: '#16a34a' }}>{Number(t.soTienDaNop).toLocaleString('vi-VN')} VNĐ</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: 8, fontSize: 14 }}>
-                    <span style={{ color: '#334155', fontWeight: 600 }}>Cần nộp tiếp:</span>
-                    <strong style={{ color: t.soTienConLai > 0 ? '#dc2626' : '#16a34a' }}>{Number(t.soTienConLai).toLocaleString('vi-VN')} VNĐ</strong>
+                  <div style={{ backgroundColor: 'var(--color-bg-page)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-bg-page)', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--font-size-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Tổng học phí:</span>
+                      <strong style={{ color: 'var(--color-text-primary)' }}>{Number(t.soTienPhaiNop).toLocaleString('vi-VN')} VNĐ</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--color-text-secondary)' }}>Đã thanh toán:</span>
+                      <strong style={{ color: 'var(--color-success)' }}>{Number(t.soTienDaNop).toLocaleString('vi-VN')} VNĐ</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--color-border)', paddingTop: '8px', fontSize: 'var(--font-size-base)' }}>
+                      <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>Cần nộp tiếp:</span>
+                      <strong style={{ color: t.soTienConLai > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{Number(t.soTienConLai).toLocaleString('vi-VN')} VNĐ</strong>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ marginTop: 20 }}>
-                {t.soTienConLai > 0 ? (
-                  <button
-                    onClick={() => handlePay(t)}
-                    disabled={processingId === t.maHocPhi}
-                    style={{ width: '100%', padding: '12px', backgroundColor: processingId === t.maHocPhi ? '#94a3b8' : '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: processingId === t.maHocPhi ? 'not-allowed' : 'pointer', fontSize: 14, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-                  >
-                    {processingId === t.maHocPhi ? '🔄 Đang chuyển tới VNPay...' : '💳 Thanh Toán Qua VNPay Ngay'}
-                  </button>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '10px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: 8, fontWeight: 600, fontSize: 13 }}>
-                    🎉 Bạn đã nộp đủ học phí học kỳ này!
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+                <div style={{ marginTop: '20px' }}>
+                  {t.soTienConLai > 0 ? (
+                    <Button
+                      onClick={() => handlePay(t)}
+                      loading={processingId === t.maHocPhi}
+                      style={{ width: '100%' }}
+                    >
+                      {processingId === t.maHocPhi ? '🔄 Đang chuyển tới VNPay...' : '💳 Thanh Toán Qua VNPay Ngay'}
+                    </Button>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '10px', backgroundColor: 'var(--color-success-light)', color: 'var(--color-success)', borderRadius: 'var(--radius-md)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                      🎉 Bạn đã nộp đủ học phí học kỳ này!
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '32px', gap: '16px' }}>
+            <Button
+              variant="secondary"
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+            >
+              Previous
+            </Button>
+            <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+              Page {currentPage + 1} of {totalPages === 0 ? 1 : totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage >= totalPages - 1}
+            >
+              Next
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );

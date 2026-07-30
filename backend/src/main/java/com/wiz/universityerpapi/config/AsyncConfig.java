@@ -24,9 +24,19 @@ public class AsyncConfig {
 
         executor.setTaskDecorator(runnable -> {
             Map<String, String> mdcCopy = MDC.getCopyOfContextMap();
+            // Capture TenantContext on the request thread before submitting to the thread pool
+            String tenantId = com.wiz.universityerpapi.tenant.TenantContext.getTenantId();
             return () -> {
                 if (mdcCopy != null) MDC.setContextMap(mdcCopy);
-                try { runnable.run(); } finally { MDC.clear(); }
+                // Restore TenantContext on the async thread
+                com.wiz.universityerpapi.tenant.TenantContext.setTenantId(tenantId);
+                try { 
+                    runnable.run(); 
+                } finally { 
+                    MDC.clear(); 
+                    // Crucial: clear TenantContext to prevent data leaks when thread returns to the pool
+                    com.wiz.universityerpapi.tenant.TenantContext.clear();
+                }
             };
         });
 

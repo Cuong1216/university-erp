@@ -45,8 +45,7 @@ public class PaymentController {
     @PreAuthorize("hasAnyRole('SINH_VIEN', 'ADMIN')")
     public ResponseEntity<CreatePaymentUrlResponseDTO> createPaymentUrl(
             @RequestBody CreatePaymentUrlRequestDTO request,
-            HttpServletRequest servletRequest
-    ) {
+            HttpServletRequest servletRequest) {
         if (request.getIpAddress() == null || request.getIpAddress().isEmpty()) {
             request.setIpAddress(VNPayUtil.getIpAddress(servletRequest));
         }
@@ -67,11 +66,14 @@ public class PaymentController {
     }
 
     /**
-     * Return URL để trình duyệt người dùng được redirect về sau khi thanh toán trên VNPay.
-     * Cũng thực hiện processWebhookCallback để chốt dữ liệu ngay nếu IPN chưa tới kịp, rồi chuyển hướng sang trang Frontend.
+     * Return URL để trình duyệt người dùng được redirect về sau khi thanh toán trên
+     * VNPay.
+     * Cũng thực hiện processWebhookCallback để chốt dữ liệu ngay nếu IPN chưa tới
+     * kịp, rồi chuyển hướng sang trang Frontend.
      */
     @GetMapping("/vnpay-return")
-    public void vnpayReturnCallback(@RequestParam Map<String, String> allParams, HttpServletResponse response) throws IOException {
+    public void vnpayReturnCallback(@RequestParam Map<String, String> allParams, HttpServletResponse response)
+            throws IOException {
         log.info("REST GET /api/v1/payment/vnpay-return (Redirect trình duyệt sau khi thanh toán)");
         VNPayWebhookResponseDTO result = vnPayService.processWebhookCallback(allParams);
 

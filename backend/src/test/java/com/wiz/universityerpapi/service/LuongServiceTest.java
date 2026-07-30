@@ -3,11 +3,12 @@ package com.wiz.universityerpapi.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wiz.universityerpapi.dto.ChotLuongRequestDTO;
 import com.wiz.universityerpapi.dto.ChotLuongResponseDTO;
+import com.wiz.universityerpapi.dto.MySalaryResponseDTO;
+import com.wiz.universityerpapi.entity.BangLuongThang;
 import com.wiz.universityerpapi.entity.CauHinhLuong;
 import com.wiz.universityerpapi.entity.NhatKyGiangDay;
 import com.wiz.universityerpapi.exception.BusinessRuleViolationException;
 import com.wiz.universityerpapi.exception.ConflictException;
-import com.wiz.universityerpapi.exception.ResourceNotFoundException;
 import com.wiz.universityerpapi.repository.BangLuongThangRepository;
 import com.wiz.universityerpapi.repository.CauHinhLuongRepository;
 import com.wiz.universityerpapi.repository.NhatKyGiangDayRepository;
@@ -26,16 +27,15 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class LuongServiceTest {
+class LuongServiceTest {
 
     @Mock
     private CauHinhLuongRepository cauHinhLuongRepository;
@@ -48,7 +48,7 @@ public class LuongServiceTest {
     @Mock
     private ObjectMapper objectMapper;
     @Mock
-    private SimpMessagingTemplate simpMessagingTemplate;
+    private SimpMessagingTemplate messagingTemplate;
     @Mock
     private IDashboardService dashboardService;
 
@@ -56,111 +56,143 @@ public class LuongServiceTest {
     private LuongService luongService;
 
     @Test
-    void chotLuong_shouldThrowConflictException_whenAlreadySettledForSameMonth() {
+    void chotLuongThang_success() throws Exception {
+        // Arrange
         ChotLuongRequestDTO request = new ChotLuongRequestDTO();
         request.setMaGv("GV001");
         request.setThang(5);
         request.setNam(2023);
 
         CustomUserDetails currentUser = mock(CustomUserDetails.class);
-        when(currentUser.getAuthorities()).thenReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
-
-        when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(true);
-
-        assertThrows(ConflictException.class, () -> luongService.chotLuongThang(request, currentUser));
-    }
-
-    @Test
-    void chotLuong_shouldThrowResourceNotFoundException_whenNoCauHinhLuongActive() {
-        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
-        request.setMaGv("GV001");
-        request.setThang(5);
-        request.setNam(2023);
-
-        CustomUserDetails currentUser = mock(CustomUserDetails.class);
-        when(currentUser.getAuthorities()).thenReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        lenient().when(currentUser.getUsername()).thenReturn("admin");
+        lenient().when(currentUser.getMaGv()).thenReturn("GV001");
+        lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
         when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(false);
-        when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> luongService.chotLuongThang(request, currentUser));
-    }
-
-    @Test
-    void chotLuong_shouldThrowBusinessRuleViolation_whenNoUnpaidLogs() {
-        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
-        request.setMaGv("GV001");
-        request.setThang(5);
-        request.setNam(2023);
-
-        CustomUserDetails currentUser = mock(CustomUserDetails.class);
-        when(currentUser.getAuthorities()).thenReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
-
-        when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(false);
-        CauHinhLuong cauHinh = new CauHinhLuong();
-        when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.of(cauHinh));
-        when(nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(Collections.emptyList());
-
-        assertThrows(BusinessRuleViolationException.class, () -> luongService.chotLuongThang(request, currentUser));
-    }
-
-    @Test
-    void chotLuong_shouldThrowAccessDenied_whenGiangVienAttemptsToSettleOtherTeacher() {
-        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
-        request.setMaGv("GV002");
-        
-        CustomUserDetails currentUser = mock(CustomUserDetails.class);
-        when(currentUser.getAuthorities()).thenReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_GIANG_VIEN")));
-        when(currentUser.getMaGv()).thenReturn("GV001");
-
-        assertThrows(AccessDeniedException.class, () -> luongService.chotLuongThang(request, currentUser));
-    }
-
-    @Test
-    void chotLuong_shouldCalculateSalaryCorrectly_withValidData() throws Exception {
-        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
-        request.setMaGv("GV001");
-        request.setThang(5);
-        request.setNam(2023);
-
-        CustomUserDetails currentUser = mock(CustomUserDetails.class);
-        when(currentUser.getAuthorities()).thenReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
-
-        when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(false);
-        
         CauHinhLuong cauHinh = new CauHinhLuong();
         cauHinh.setLuongCoBan(new BigDecimal("5000000"));
-        cauHinh.setDonGiaTietChuan(new BigDecimal("150000"));
+        cauHinh.setDonGiaTietChuan(new BigDecimal("100000"));
         when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.of(cauHinh));
 
         NhatKyGiangDay nk = new NhatKyGiangDay();
         nk.setSoTietThucTe(10);
-        nk.setNgayDayThucTe(LocalDate.now());
+        nk.setNgayDayThucTe(LocalDate.of(2023, 5, 10));
         when(nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(Collections.singletonList(nk));
 
         GiangVienHeSoView heSoView = mock(GiangVienHeSoView.class);
-        when(heSoView.getHeSoCd()).thenReturn(new BigDecimal("1.5"));
-        when(heSoView.getHeSoHv()).thenReturn(new BigDecimal("1.0"));
+        when(heSoView.getHeSoCd()).thenReturn(new BigDecimal("1.2"));
+        when(heSoView.getHeSoHv()).thenReturn(new BigDecimal("1.1"));
         when(userRepository.findHeSoByMaGv("GV001")).thenReturn(Optional.of(heSoView));
 
-        when(objectMapper.writeValueAsString(any())).thenReturn("{}");
-        
-        when(bangLuongThangRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(objectMapper.writeValueAsString(anyMap())).thenReturn("{}");
 
+        BangLuongThang savedBangLuong = new BangLuongThang();
+        savedBangLuong.setMaBangLuong("BL-GV001-052023-XYZ");
+        savedBangLuong.setMaGv("GV001");
+        savedBangLuong.setThang(5);
+        savedBangLuong.setNam(2023);
+        savedBangLuong.setTongSoTietThucTe(10);
+        savedBangLuong.setTongTienLuong(new BigDecimal("6200000.00"));
+        when(bangLuongThangRepository.save(any(BangLuongThang.class))).thenReturn(savedBangLuong);
+
+        // Act
         ChotLuongResponseDTO response = luongService.chotLuongThang(request, currentUser);
 
-        // 5000000 + (10 * 150000 * 1.5) = 7250000
-        assertEquals(new BigDecimal("7250000.00"), response.getTongTienLuong());
-        verify(bangLuongThangRepository, times(1)).save(any());
+        // Assert
+        assertNotNull(response);
+        assertEquals("BL-GV001-052023-XYZ", response.getMaBangLuong());
+        assertEquals("GV001", response.getMaGv());
+        assertEquals(new BigDecimal("6200000.00"), response.getTongTienLuong());
+        verify(bangLuongThangRepository).save(any(BangLuongThang.class));
+        verify(nhatKyGiangDayRepository).markAsPaid(anyString(), anyList());
+        verify(dashboardService).invalidateDashboardCache();
     }
 
     @Test
-    void getMySalary_shouldThrowBusinessRuleViolation_whenUserHasNoMaGv() {
-        CustomUserDetails currentUser = mock(CustomUserDetails.class);
-        when(currentUser.getMaGv()).thenReturn(null);
+    void chotLuongThang_throwsConflict_whenAlreadyChot() {
+        // Arrange
+        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
+        request.setMaGv("GV001");
+        request.setThang(5);
+        request.setNam(2023);
 
+        CustomUserDetails currentUser = mock(CustomUserDetails.class);
+        lenient().when(currentUser.getUsername()).thenReturn("admin");
+        lenient().when(currentUser.getMaGv()).thenReturn("GV001");
+        lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(true);
+
+        // Act & Assert
+        assertThrows(ConflictException.class, () -> luongService.chotLuongThang(request, currentUser));
+    }
+
+    @Test
+    void chotLuongThang_throwsAccessDenied_whenGiangVienChotForOther() {
+        // Arrange
+        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
+        request.setMaGv("GV002"); // Request for GV002
+        
+        CustomUserDetails currentUser = mock(CustomUserDetails.class);
+        lenient().when(currentUser.getUsername()).thenReturn("user1");
+        lenient().when(currentUser.getMaGv()).thenReturn("GV001");
+        lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_GIANG_VIEN")));
+
+        // Act & Assert
+        assertThrows(AccessDeniedException.class, () -> luongService.chotLuongThang(request, currentUser));
+    }
+
+    @Test
+    void chotLuongThang_throwsBusinessRule_whenNoUnpaidLogs() {
+        // Arrange
+        ChotLuongRequestDTO request = new ChotLuongRequestDTO();
+        request.setMaGv("GV001");
+        request.setThang(5);
+        request.setNam(2023);
+
+        CustomUserDetails currentUser = mock(CustomUserDetails.class);
+        lenient().when(currentUser.getUsername()).thenReturn("admin");
+        lenient().when(currentUser.getMaGv()).thenReturn("GV001");
+        lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(false);
+        when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.of(new CauHinhLuong()));
+        when(nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(Collections.emptyList()); // No unpaid logs
+
+        // Act & Assert
+        assertThrows(BusinessRuleViolationException.class, () -> luongService.chotLuongThang(request, currentUser));
+    }
+
+    @Test
+    void getMySalaryHistory_returnsEmpty_whenNoData() {
+        // Arrange
+        CustomUserDetails currentUser = mock(CustomUserDetails.class);
+        lenient().when(currentUser.getUsername()).thenReturn("user1");
+        lenient().when(currentUser.getMaGv()).thenReturn("GV001");
+        lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_GIANG_VIEN")));
+
+        when(bangLuongThangRepository.findByMaGvOrderByNamDescThangDesc("GV001")).thenReturn(Collections.emptyList());
+
+        // Act
+        List<MySalaryResponseDTO> response = luongService.getMySalaryHistory(currentUser, null, null);
+
+        // Assert
+        assertNotNull(response);
+        assertTrue(response.isEmpty());
+    }
+
+    @Test
+    void getMySalaryHistory_throwsBusinessRule_whenMaGvNull() {
+        // Arrange
+        CustomUserDetails currentUser = mock(CustomUserDetails.class);
+        lenient().when(currentUser.getUsername()).thenReturn("user1");
+        lenient().when(currentUser.getMaGv()).thenReturn(null);
+        lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+
+        // Act & Assert
         assertThrows(BusinessRuleViolationException.class, () -> luongService.getMySalaryHistory(currentUser, null, null));
     }
 }

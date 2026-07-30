@@ -13,4 +13,9 @@ public interface AuthService {
      * @param bearerToken Token dưới dạng "Bearer xxx..." hoặc chỉ là token string
      */
     void logout(String bearerToken);
+
+    /**
+     * Refresh Access Token sử dụng Refresh Token.
+     */
+    LoginResponseDTO refreshAccessToken(String refreshToken);
 }

@@ -44,6 +44,11 @@ jobs:
           cd backend
           mvn clean verify jacoco:report -DDB_URL=jdbc:postgresql://localhost:5432/university_erp_db -DDB_USERNAME=postgres -DDB_PASSWORD=postgrespassword -Dai.datasource.username=postgres -Dai.datasource.password=postgrespassword -DDDL_AUTO=create-drop
 
+      - name: Check Coverage Threshold
+        run: |
+          cd backend
+          mvn jacoco:check -Djacoco.check.line.minimum=0.50
+
       - name: Upload JaCoCo Coverage Report
         uses: actions/upload-artifact@v4
         with:
@@ -198,6 +203,21 @@ jobs:
       url: https://erp.university.edu.vn
     runs-on: ubuntu-latest
     steps:
+      - name: Save Previous Stable Tag
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PROD_KEY }}
+          script: |
+            cd /opt/university-erp
+            CURRENT_TAG=$(docker ps --filter "name=backend" --format "{{.Image}}" | cut -d':' -f2 | head -n 1)
+            if [ -z "$CURRENT_TAG" ]; then
+              CURRENT_TAG="latest"
+            fi
+            echo $CURRENT_TAG > .prev-stable-tag
+            echo "Previous stable tag saved: $CURRENT_TAG"
+
       - name: SSH & Blue-Green / Rolling Update
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -228,5 +248,23 @@ jobs:
           script: |
             cd /opt/university-erp
             echo "Deployment failed! Rolling back..."
-            # Lệnh rollback tùy chỉnh (ví dụ: revert về tag previous, hoặc down)
-            # docker compose up -d --wait (với ảnh cũ)
+            PREV_TAG=$(cat .prev-stable-tag 2>/dev/null || echo "latest")
+            export BACKEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:$PREV_TAG
+            export FRONTEND_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:$PREV_TAG
+            docker compose up -d --wait
+            curl -f https://erp.university.edu.vn/api/v1/actuator/health || (echo "ROLLBACK FAILED" && exit 1)
+            echo "ROLLBACK COMPLETED to tag: $PREV_TAG"
+
+      - name: Slack Notification - Success
+        if: success()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"✅ Production Deployment Successful! Tag: ${{ github.sha }}"}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi
+
+      - name: Slack Notification - Rollback
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' --data '{"text":"🚨 Production Deployment Failed! Rollback triggered."}' ${{ secrets.SLACK_WEBHOOK_URL }}
+          fi

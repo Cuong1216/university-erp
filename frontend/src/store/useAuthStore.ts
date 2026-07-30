@@ -27,6 +27,7 @@ const decodeJwt = (token: string): JwtPayload | null => {
 const initialState: AuthState = {
   isLoggedIn: false,
   accessToken: null,
+  refreshToken: null,
   userInfo: null,
   roles: [],
   isInitialized: false,
@@ -37,7 +38,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     (set, get) => ({
       ...initialState,
 
-      setToken: (token: string) => {
+      setToken: (token: string, refreshToken?: string) => {
         const payload = decodeJwt(token);
         if (!payload) {
           get().logout();
@@ -63,10 +64,15 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({
           isLoggedIn: true,
           accessToken: token,
+          ...(refreshToken ? { refreshToken } : {}),
           userInfo,
           roles: extractedRoles,
           isInitialized: true,
         });
+      },
+
+      setTokens: (accessToken: string, refreshToken: string) => {
+        get().setToken(accessToken, refreshToken);
       },
 
       logout: () => {
@@ -102,10 +108,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     }),
     {
       name: 'erp_auth_storage', // Tên key trong localStorage
-      partialize: (state) => ({ accessToken: state.accessToken }),
+      partialize: (state) => ({ accessToken: state.accessToken, refreshToken: state.refreshToken }),
       onRehydrateStorage: () => (state) => {
         if (state && state.accessToken) {
-          state.setToken(state.accessToken);
+          state.setToken(state.accessToken, state.refreshToken || undefined);
         } else if (state) {
           state.isInitialized = true;
         }

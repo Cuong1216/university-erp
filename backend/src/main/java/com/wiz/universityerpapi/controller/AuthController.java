@@ -2,6 +2,7 @@ package com.wiz.universityerpapi.controller;
 
 import com.wiz.universityerpapi.dto.LoginRequestDTO;
 import com.wiz.universityerpapi.dto.LoginResponseDTO;
+import com.wiz.universityerpapi.dto.RefreshTokenRequestDTO;
 import com.wiz.universityerpapi.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -41,5 +42,11 @@ public class AuthController {
                 "message", "Đăng xuất thành công. Token đã bị vô hiệu hóa.",
                 "username", username
         ));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponseDTO> refresh(@Valid @RequestBody RefreshTokenRequestDTO request) {
+        LoginResponseDTO response = authService.refreshAccessToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
     }
 }

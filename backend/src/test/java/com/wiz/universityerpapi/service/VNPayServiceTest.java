@@ -6,13 +6,12 @@ import com.wiz.universityerpapi.entity.HocPhi;
 import com.wiz.universityerpapi.repository.HocPhiRepository;
 import com.wiz.universityerpapi.repository.ThanhToanLogRepository;
 import com.wiz.universityerpapi.util.VNPayUtil;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -22,115 +21,133 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class VNPayServiceTest {
+class VNPayServiceTest {
 
     @Mock
     private VNPayConfig vnpayConfig;
+
     @Mock
     private HocPhiRepository hocPhiRepository;
+
     @Mock
     private ThanhToanLogRepository thanhToanLogRepository;
 
     @InjectMocks
     private VNPayService vnPayService;
-    
-    private MockedStatic<VNPayUtil> vnPayUtilMock;
-
-    @BeforeEach
-    void setUp() {
-        vnPayUtilMock = mockStatic(VNPayUtil.class);
-    }
-
-    @AfterEach
-    void tearDown() {
-        vnPayUtilMock.close();
-    }
 
     @Test
-    void processWebhook_shouldReturnInvalidChecksum_whenHashMismatch() {
+    void processWebhookCallback_returnsInvalidChecksum_whenHashMismatch() {
+        // Arrange
         Map<String, String> params = new HashMap<>();
+        params.put("vnp_TxnRef", "HP001_123456789");
         params.put("vnp_SecureHash", "invalid_hash");
-        
-        when(vnpayConfig.getVnpHashSecret()).thenReturn("secret");
-        vnPayUtilMock.when(() -> VNPayUtil.hashAllFields(any(), any())).thenReturn("valid_hash");
 
-        VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
-        assertEquals("97", response.getRspCode());
+        when(vnpayConfig.getVnpHashSecret()).thenReturn("mySecret");
+
+        try (MockedStatic<VNPayUtil> mockedVNPayUtil = Mockito.mockStatic(VNPayUtil.class)) {
+            mockedVNPayUtil.when(() -> VNPayUtil.hashAllFields(any(), eq("mySecret"))).thenReturn("valid_hash");
+
+            // Act
+            VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
+
+            // Assert
+            assertEquals("97", response.getRspCode());
+            assertEquals("Invalid Checksum", response.getMessage());
+        }
     }
 
     @Test
-    void processWebhook_shouldReturnAlreadyConfirmed_whenTxnRefExists() {
+    void processWebhookCallback_returnsAlreadyConfirmed_whenDuplicate() {
+        // Arrange
         Map<String, String> params = new HashMap<>();
-        params.put("vnp_SecureHash", "hash");
-        params.put("vnp_TxnRef", "HP01_12345");
-        
-        when(vnpayConfig.getVnpHashSecret()).thenReturn("secret");
-        vnPayUtilMock.when(() -> VNPayUtil.hashAllFields(any(), any())).thenReturn("hash");
-        when(thanhToanLogRepository.existsByVnpTxnRef("HP01_12345")).thenReturn(true);
+        params.put("vnp_TxnRef", "HP001_123456789");
+        params.put("vnp_SecureHash", "valid_hash");
 
-        VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
-        assertEquals("02", response.getRspCode());
+        when(vnpayConfig.getVnpHashSecret()).thenReturn("mySecret");
+
+        try (MockedStatic<VNPayUtil> mockedVNPayUtil = Mockito.mockStatic(VNPayUtil.class)) {
+            mockedVNPayUtil.when(() -> VNPayUtil.hashAllFields(any(), eq("mySecret"))).thenReturn("valid_hash");
+            when(thanhToanLogRepository.existsByVnpTxnRef("HP001_123456789")).thenReturn(true);
+
+            // Act
+            VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
+
+            // Assert
+            assertEquals("02", response.getRspCode());
+            assertEquals("Order already confirmed", response.getMessage());
+        }
     }
 
     @Test
-    void processWebhook_shouldReturnOrderNotFound_whenMaHocPhiNotExist() {
+    void processWebhookCallback_updatesHocPhi_whenSuccess() {
+        // Arrange
         Map<String, String> params = new HashMap<>();
-        params.put("vnp_SecureHash", "hash");
-        params.put("vnp_TxnRef", "HP01_12345");
-        
-        when(vnpayConfig.getVnpHashSecret()).thenReturn("secret");
-        vnPayUtilMock.when(() -> VNPayUtil.hashAllFields(any(), any())).thenReturn("hash");
-        when(thanhToanLogRepository.existsByVnpTxnRef("HP01_12345")).thenReturn(false);
-        when(hocPhiRepository.findById("HP01")).thenReturn(Optional.empty());
-
-        VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
-        assertEquals("01", response.getRspCode());
-    }
-
-    @Test
-    void processWebhook_shouldUpdateHocPhiToFullyPaid_whenPaymentSuccessful() {
-        Map<String, String> params = new HashMap<>();
-        params.put("vnp_SecureHash", "hash");
-        params.put("vnp_TxnRef", "HP01_12345");
-        params.put("vnp_ResponseCode", "00");
+        params.put("vnp_TxnRef", "HP001_123456789");
+        params.put("vnp_SecureHash", "valid_hash");
         params.put("vnp_Amount", "100000000"); // 1,000,000 VND
-        
-        when(vnpayConfig.getVnpHashSecret()).thenReturn("secret");
-        vnPayUtilMock.when(() -> VNPayUtil.hashAllFields(any(), any())).thenReturn("hash");
-        when(thanhToanLogRepository.existsByVnpTxnRef("HP01_12345")).thenReturn(false);
-        
-        HocPhi hocPhi = new HocPhi();
-        hocPhi.setSoTienPhaiNop(new BigDecimal("1000000"));
-        hocPhi.setSoTienDaNop(BigDecimal.ZERO);
-        when(hocPhiRepository.findById("HP01")).thenReturn(Optional.of(hocPhi));
+        params.put("vnp_ResponseCode", "00");
 
-        VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
-        assertEquals("00", response.getRspCode());
-        assertEquals("DA_NOP_DU", hocPhi.getTrangThai());
+        when(vnpayConfig.getVnpHashSecret()).thenReturn("mySecret");
+
+        try (MockedStatic<VNPayUtil> mockedVNPayUtil = Mockito.mockStatic(VNPayUtil.class)) {
+            mockedVNPayUtil.when(() -> VNPayUtil.hashAllFields(any(), eq("mySecret"))).thenReturn("valid_hash");
+            when(thanhToanLogRepository.existsByVnpTxnRef("HP001_123456789")).thenReturn(false);
+
+            HocPhi hocPhi = new HocPhi();
+            hocPhi.setMaHocPhi("HP001");
+            hocPhi.setSoTienPhaiNop(new BigDecimal("2000000"));
+            hocPhi.setSoTienDaNop(new BigDecimal("0"));
+            when(hocPhiRepository.findById("HP001")).thenReturn(Optional.of(hocPhi));
+
+            // Act
+            VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
+
+            // Assert
+            assertEquals("00", response.getRspCode());
+            assertEquals("Confirm Success", response.getMessage());
+            
+            // Verify hocPhi is saved with updated amount
+            assertEquals(new BigDecimal("1000000"), hocPhi.getSoTienDaNop());
+            assertEquals("NOP_MOT_PHAN", hocPhi.getTrangThai());
+            verify(hocPhiRepository).save(hocPhi);
+        }
     }
 
     @Test
-    void processWebhook_shouldSetPartialPaid_whenPartialPayment() {
+    void processWebhookCallback_doesNotUpdateHocPhi_whenFailed() {
+        // Arrange
         Map<String, String> params = new HashMap<>();
-        params.put("vnp_SecureHash", "hash");
-        params.put("vnp_TxnRef", "HP01_12345");
-        params.put("vnp_ResponseCode", "00");
-        params.put("vnp_Amount", "50000000"); // 500,000 VND
-        
-        when(vnpayConfig.getVnpHashSecret()).thenReturn("secret");
-        vnPayUtilMock.when(() -> VNPayUtil.hashAllFields(any(), any())).thenReturn("hash");
-        when(thanhToanLogRepository.existsByVnpTxnRef("HP01_12345")).thenReturn(false);
-        
-        HocPhi hocPhi = new HocPhi();
-        hocPhi.setSoTienPhaiNop(new BigDecimal("1000000"));
-        hocPhi.setSoTienDaNop(BigDecimal.ZERO);
-        when(hocPhiRepository.findById("HP01")).thenReturn(Optional.of(hocPhi));
+        params.put("vnp_TxnRef", "HP001_123456789");
+        params.put("vnp_SecureHash", "valid_hash");
+        params.put("vnp_Amount", "100000000"); // 1,000,000 VND
+        params.put("vnp_ResponseCode", "24"); // Failed response code
 
-        VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
-        assertEquals("00", response.getRspCode());
-        assertEquals("NOP_MOT_PHAN", hocPhi.getTrangThai());
+        when(vnpayConfig.getVnpHashSecret()).thenReturn("mySecret");
+
+        try (MockedStatic<VNPayUtil> mockedVNPayUtil = Mockito.mockStatic(VNPayUtil.class)) {
+            mockedVNPayUtil.when(() -> VNPayUtil.hashAllFields(any(), eq("mySecret"))).thenReturn("valid_hash");
+            when(thanhToanLogRepository.existsByVnpTxnRef("HP001_123456789")).thenReturn(false);
+
+            HocPhi hocPhi = new HocPhi();
+            hocPhi.setMaHocPhi("HP001");
+            hocPhi.setSoTienPhaiNop(new BigDecimal("2000000"));
+            hocPhi.setSoTienDaNop(new BigDecimal("0"));
+            when(hocPhiRepository.findById("HP001")).thenReturn(Optional.of(hocPhi));
+
+            // Act
+            VNPayWebhookResponseDTO response = vnPayService.processWebhookCallback(params);
+
+            // Assert
+            assertEquals("00", response.getRspCode()); // Always return 00 for confirm success
+            assertEquals("Confirm Success", response.getMessage());
+            
+            // Verify hocPhi is NOT saved with updated amount
+            assertEquals(new BigDecimal("0"), hocPhi.getSoTienDaNop());
+            verify(hocPhiRepository, never()).save(any(HocPhi.class));
+        }
     }
 }

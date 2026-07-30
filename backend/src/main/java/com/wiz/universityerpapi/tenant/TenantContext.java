@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TenantContext {
 
-    private static final ThreadLocal<String> CURRENT_TENANT = new InheritableThreadLocal<>();
+    private static final ThreadLocal<String> CURRENT_TENANT = new ThreadLocal<>();
     public static final String DEFAULT_TENANT = "public";
 
     public static String getTenantId() {
