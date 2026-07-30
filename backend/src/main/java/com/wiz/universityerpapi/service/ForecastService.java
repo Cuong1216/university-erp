@@ -5,19 +5,18 @@ import com.wiz.universityerpapi.dto.analytics.SalaryForecastResponseDTO.Forecast
 import com.wiz.universityerpapi.dto.analytics.SalaryForecastResponseDTO.HistoricalPointDTO;
 import com.wiz.universityerpapi.repository.BangLuongThangRepository;
 import com.wiz.universityerpapi.repository.projection.MonthlySalaryTrendView;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -25,15 +24,35 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ForecastService {
 
     private final BangLuongThangRepository bangLuongThangRepository;
+    private final RestClient restClient;
 
-    @Value("${ai.forecaster.url:http://localhost:8001/forecast}")
-    private String forecasterUrl;
+    @Value("${forecast.seasonal.semester1-months:9,10}")
+    private String semester1MonthsStr;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    @Value("${forecast.seasonal.semester1-multiplier:1.10}")
+    private double semester1Multiplier;
+
+    @Value("${forecast.seasonal.semester2-months:2,3}")
+    private String semester2MonthsStr;
+
+    @Value("${forecast.seasonal.semester2-multiplier:1.05}")
+    private double semester2Multiplier;
+
+    @Value("${forecast.seasonal.summer-months:6,7}")
+    private String summerMonthsStr;
+
+    @Value("${forecast.seasonal.summer-multiplier:1.0}")
+    private double summerMultiplier;
+
+    public ForecastService(
+            BangLuongThangRepository bangLuongThangRepository,
+            @Qualifier("forecastRestClient") RestClient restClient) {
+        this.bangLuongThangRepository = bangLuongThangRepository;
+        this.restClient = restClient;
+    }
 
     @Transactional(readOnly = true)
     @Cacheable(value = "salary_forecast", key = "'trend_forecast'")
@@ -72,14 +91,15 @@ public class ForecastService {
         reqBody.put("history", requestHistoryPayload);
         reqBody.put("periods", periods > 0 ? periods : 6);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(reqBody, headers);
-
         try {
-            ResponseEntity<Map> resp = restTemplate.postForEntity(forecasterUrl, entity, Map.class);
-            if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
-                Map<String, Object> body = resp.getBody();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = restClient.post()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(reqBody)
+                    .retrieve()
+                    .body(Map.class);
+
+            if (body != null) {
                 String modelUsed = (String) body.getOrDefault("model_used", "Time Series Hybrid Engine");
                 List<Map<String, Object>> forecastPointsRaw = (List<Map<String, Object>>) body.get("forecast");
 
@@ -96,8 +116,13 @@ public class ForecastService {
 
                 return new SalaryForecastResponseDTO(modelUsed, historicalList, forecastList);
             }
+        } catch (ResourceAccessException e) {
+            log.warn("AI Forecaster timeout sau {}ms, chuyển sang Java fallback engine", 10000);
+            log.error("Lỗi timeout khi kết nối Python Forecaster AI Service: {}", e.getMessage());
+        } catch (HttpClientErrorException e) {
+            log.error("Lỗi HTTP khi kết nối Python Forecaster AI Service: {}", e.getMessage());
         } catch (Exception e) {
-            log.error("Lỗi khi kết nối Python Forecaster AI Service tại {}: {}", forecasterUrl, e.getMessage());
+            log.error("Lỗi khi kết nối Python Forecaster AI Service: {}", e.getMessage());
         }
 
         // Fallback tự động: nếu Python microservice chưa lên hoặc lỗi kết nối, tính toán dự báo xu hướng đơn giản ngay tại Java
@@ -134,7 +159,14 @@ public class ForecastService {
             }
             String ds = String.format("%04d-%02d-01", nextYear, nextMonth);
             
-            double seasonalMult = (nextMonth == 9 || nextMonth == 10) ? 1.10 : (nextMonth == 2 || nextMonth == 3 ? 1.05 : 1.0);
+            double seasonalMult = 1.0;
+            if (Arrays.stream(semester1MonthsStr.split(",")).map(String::trim).map(Integer::parseInt).anyMatch(m -> m == nextMonth)) {
+                seasonalMult = semester1Multiplier;
+            } else if (Arrays.stream(semester2MonthsStr.split(",")).map(String::trim).map(Integer::parseInt).anyMatch(m -> m == nextMonth)) {
+                seasonalMult = semester2Multiplier;
+            } else if (Arrays.stream(summerMonthsStr.split(",")).map(String::trim).map(Integer::parseInt).anyMatch(m -> m == nextMonth)) {
+                seasonalMult = summerMultiplier;
+            }
             double val = avg * (1 + 0.015 * i) * seasonalMult;
             double lower = val * 0.92;
             double upper = val * 1.08;

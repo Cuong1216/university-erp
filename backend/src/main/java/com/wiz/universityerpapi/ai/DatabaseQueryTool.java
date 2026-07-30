@@ -1,9 +1,11 @@
 package com.wiz.universityerpapi.ai;
 
+import com.wiz.universityerpapi.aop.LogAuditAction;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,18 +24,13 @@ public class DatabaseQueryTool {
 
     private final JdbcTemplate aiReadOnlyJdbcTemplate;
 
-    private static final Pattern FORBIDDEN_KEYWORDS = Pattern.compile(
-            "(?i)\\b(DROP|DELETE|UPDATE|INSERT|ALTER|TRUNCATE|EXEC|GRANT|REVOKE|CREATE|REPLACE|MERGE)\\b"
-    );
-
     public DatabaseQueryTool(@Qualifier("aiReadOnlyJdbcTemplate") JdbcTemplate aiReadOnlyJdbcTemplate) {
         this.aiReadOnlyJdbcTemplate = aiReadOnlyJdbcTemplate;
     }
 
     @Tool("Thực thi câu lệnh SQL SELECT (đọc dữ liệu) trên cơ sở dữ liệu PostgreSQL để trả lời câu hỏi của người dùng. Chỉ nhận câu lệnh SELECT hợp lệ.")
+    @LogAuditAction(actionType = "AI_QUERY")
     public String executeReadOnlyQuery(String sqlQuery) {
-        log.info("AI Copilot yêu cầu thực thi SQL: {}", sqlQuery);
-
         if (sqlQuery == null || sqlQuery.trim().isEmpty()) {
             return "Lỗi: Câu lệnh SQL bị trống.";
         }
@@ -43,21 +40,13 @@ public class DatabaseQueryTool {
             cleanedSql = cleanedSql.substring(0, cleanedSql.length() - 1).trim();
         }
 
-        // Lớp bảo vệ 1: Kiểm tra Application-level
-        if (!cleanedSql.toUpperCase().startsWith("SELECT")) {
-            log.warn("Từ chối truy vấn không bắt đầu bằng SELECT: {}", cleanedSql);
-            return "Lỗi: Chỉ được phép thực thi câu lệnh SELECT (truy vấn chỉ đọc).";
+        try {
+            cleanedSql = validateSqlSafety(cleanedSql);
+        } catch (IllegalArgumentException e) {
+            return "Trợ lý AI không thể thực thi câu lệnh này vì lý do bảo mật. Vui lòng đặt câu hỏi theo cách khác.";
         }
 
-        if (FORBIDDEN_KEYWORDS.matcher(cleanedSql).find()) {
-            log.warn("Phát hiện từ khóa cấm trong truy vấn AI: {}", cleanedSql);
-            return "Lỗi bảo mật: Phát hiện từ khóa thay đổi cấu trúc/dữ liệu cấm trong câu lệnh.";
-        }
-
-        // Đảm bảo không truy vấn quá số lượng bản ghi gây nghẽn bộ nhớ
-        if (!cleanedSql.toUpperCase().contains("LIMIT ")) {
-            cleanedSql = cleanedSql + " LIMIT 50";
-        }
+        log.info("[AI_COPILOT_QUERY] User='{}' SQL='{}'", getCurrentUsername(), cleanedSql);
 
         try {
             // Lớp bảo vệ 2: Thực thi qua DB user erp_ai_readonly_user
@@ -71,5 +60,38 @@ public class DatabaseQueryTool {
             log.error("Lỗi khi thực thi SQL từ AI tool: {}", e.getMessage());
             return "Lỗi thực thi SQL: " + e.getMessage() + ". Hãy kiểm tra lại tên bảng và cột theo đúng schema được cung cấp.";
         }
+    }
+
+    private String validateSqlSafety(String sql) {
+        String upper = sql.trim().toUpperCase();
+        if (!upper.startsWith("SELECT")) {
+            throw new IllegalArgumentException("Chỉ cho phép câu lệnh SELECT");
+        }
+
+        List<String> BLOCKED_KEYWORDS = List.of(
+            "DROP", "DELETE", "UPDATE", "INSERT", "TRUNCATE", "ALTER", "CREATE",
+            "EXEC", "EXECUTE", "CALL", "GRANT", "REVOKE",
+            "--", "/*", "*/", "xp_", "pg_read_file", "COPY", "\\\\copy",
+            "INTO OUTFILE", "INFORMATION_SCHEMA", "PG_SHADOW", "PG_AUTHID"
+        );
+
+        for (String keyword : BLOCKED_KEYWORDS) {
+            if (upper.contains(keyword.toUpperCase())) {
+                throw new IllegalArgumentException("Từ khóa không được phép");
+            }
+        }
+
+        if (!upper.contains("LIMIT")) {
+            sql = sql.stripTrailing() + " LIMIT 50";
+            log.info("Auto-appended LIMIT 50 to AI query");
+        }
+        return sql;
+    }
+
+    private String getCurrentUsername() {
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return SecurityContextHolder.getContext().getAuthentication().getName();
+        }
+        return "system";
     }
 }

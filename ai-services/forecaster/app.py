@@ -6,6 +6,27 @@ import numpy as np
 import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import json, os
+
+def load_seasonal_config():
+    return {
+        "semester1_months": list(map(int, os.getenv("SEMESTER1_MONTHS", "9,10").split(","))),
+        "semester1_multiplier": float(os.getenv("SEMESTER1_MULTIPLIER", "1.12")),
+        "semester2_months": list(map(int, os.getenv("SEMESTER2_MONTHS", "2,3").split(","))),
+        "semester2_multiplier": float(os.getenv("SEMESTER2_MULTIPLIER", "1.08")),
+        "summer_months": list(map(int, os.getenv("SUMMER_MONTHS", "6,7").split(","))),
+        "summer_multiplier": float(os.getenv("SUMMER_MULTIPLIER", "0.92")),
+    }
+SEASONAL_CONFIG = load_seasonal_config()
+
+def get_seasonal_multiplier(month_num, config):
+    if month_num in config["semester1_months"]:
+        return config["semester1_multiplier"]
+    elif month_num in config["semester2_months"]:
+        return config["semester2_multiplier"]
+    elif month_num in config["summer_months"]:
+        return config["summer_multiplier"]
+    return 1.0
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SalaryForecasterAI")
@@ -37,6 +58,10 @@ class ForecastResponse(BaseModel):
 @app.get("/health")
 def health_check():
     return {"status": "UP", "service": "salary-forecaster-ai", "version": "1.0.0"}
+
+@app.get("/config")
+def get_config():
+    return {"seasonal_config": SEASONAL_CONFIG, "version": "1.0.0"}
 
 @app.post("/forecast", response_model=ForecastResponse)
 def forecast_salary(req: ForecastRequest):
@@ -109,13 +134,7 @@ def forecast_salary(req: ForecastRequest):
         
         # Mô phỏng đỉnh chi phí vào đầu học kỳ (tháng 9 khai giảng và tháng 2 đầu kỳ 2)
         month_num = future_date.month
-        seasonal_multiplier = 1.0
-        if month_num in [9, 10]:  # Đầu học kỳ 1 (Khai giảng, thỉnh giảng)
-            seasonal_multiplier = 1.12
-        elif month_num in [2, 3]: # Đầu học kỳ 2
-            seasonal_multiplier = 1.08
-        elif month_num in [6, 7]: # Nghỉ hè
-            seasonal_multiplier = 0.92
+        seasonal_multiplier = get_seasonal_multiplier(month_num, SEASONAL_CONFIG)
 
         base_yhat = (trend_slope * future_t + trend_intercept) * seasonal_multiplier
         # Đảm bảo yhat không âm
