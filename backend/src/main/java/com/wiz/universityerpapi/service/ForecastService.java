@@ -55,6 +55,8 @@ public class ForecastService {
     }
 
     @Transactional(readOnly = true)
+    @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "forecastAiService", fallbackMethod = "fallbackForecast")
+    @io.github.resilience4j.timelimiter.annotation.TimeLimiter(name = "forecastAiService")
     @Cacheable(value = "salary_forecast", key = "'trend_forecast'")
     public SalaryForecastResponseDTO getSalaryForecast(int periods) {
         log.info("Tính toán và dự báo quỹ lương cho {} kỳ tới qua AI microservice...", periods);
@@ -91,42 +93,55 @@ public class ForecastService {
         reqBody.put("history", requestHistoryPayload);
         reqBody.put("periods", periods > 0 ? periods : 6);
 
-        try {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = restClient.post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(reqBody)
+                .retrieve()
+                .body(Map.class);
+
+        if (body != null) {
+            String modelUsed = (String) body.getOrDefault("model_used", "Time Series Hybrid Engine");
             @SuppressWarnings("unchecked")
-            Map<String, Object> body = restClient.post()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(reqBody)
-                    .retrieve()
-                    .body(Map.class);
+            List<Map<String, Object>> forecastPointsRaw = (List<Map<String, Object>>) body.get("forecast");
 
-            if (body != null) {
-                String modelUsed = (String) body.getOrDefault("model_used", "Time Series Hybrid Engine");
-                List<Map<String, Object>> forecastPointsRaw = (List<Map<String, Object>>) body.get("forecast");
-
-                List<ForecastPointDTO> forecastList = new ArrayList<>();
-                if (forecastPointsRaw != null) {
-                    for (Map<String, Object> fp : forecastPointsRaw) {
-                        String ds = (String) fp.get("ds");
-                        double yhat = ((Number) fp.get("yhat")).doubleValue();
-                        double yhatLower = ((Number) fp.get("yhat_lower")).doubleValue();
-                        double yhatUpper = ((Number) fp.get("yhat_upper")).doubleValue();
-                        forecastList.add(new ForecastPointDTO(ds, BigDecimal.valueOf(yhat), BigDecimal.valueOf(yhatLower), BigDecimal.valueOf(yhatUpper)));
-                    }
+            List<ForecastPointDTO> forecastList = new ArrayList<>();
+            if (forecastPointsRaw != null) {
+                for (Map<String, Object> fp : forecastPointsRaw) {
+                    String ds = (String) fp.get("ds");
+                    double yhat = ((Number) fp.get("yhat")).doubleValue();
+                    double yhatLower = ((Number) fp.get("yhat_lower")).doubleValue();
+                    double yhatUpper = ((Number) fp.get("yhat_upper")).doubleValue();
+                    forecastList.add(new ForecastPointDTO(ds, BigDecimal.valueOf(yhat), BigDecimal.valueOf(yhatLower), BigDecimal.valueOf(yhatUpper)));
                 }
-
-                return new SalaryForecastResponseDTO(modelUsed, historicalList, forecastList);
             }
-        } catch (ResourceAccessException e) {
-            log.warn("AI Forecaster timeout sau {}ms, chuyển sang Java fallback engine", 10000);
-            log.error("Lỗi timeout khi kết nối Python Forecaster AI Service: {}", e.getMessage());
-        } catch (HttpClientErrorException e) {
-            log.error("Lỗi HTTP khi kết nối Python Forecaster AI Service: {}", e.getMessage());
-        } catch (Exception e) {
-            log.error("Lỗi khi kết nối Python Forecaster AI Service: {}", e.getMessage());
+
+            return new SalaryForecastResponseDTO(modelUsed, historicalList, forecastList);
         }
 
-        // Fallback tự động: nếu Python microservice chưa lên hoặc lỗi kết nối, tính toán dự báo xu hướng đơn giản ngay tại Java
+        throw new RuntimeException("Phản hồi rỗng từ AI Service");
+    }
+
+    private SalaryForecastResponseDTO fallbackForecast(int periods, Throwable ex) {
+        log.warn("[CircuitBreaker] AI Forecaster không khả dụng ({}). Dùng Java fallback.", ex.getMessage());
+        List<MonthlySalaryTrendView> rawTrends = bangLuongThangRepository.findSalaryTrends(PageRequest.of(0, 24));
+        List<HistoricalPointDTO> historicalList = buildHistoricalList(rawTrends);
         return fallbackLocalForecast(historicalList, periods > 0 ? periods : 6);
+    }
+
+    private List<HistoricalPointDTO> buildHistoricalList(List<MonthlySalaryTrendView> rawTrends) {
+        List<MonthlySalaryTrendView> sortedTrends = rawTrends.stream()
+                .sorted(Comparator.comparing(MonthlySalaryTrendView::getNam)
+                        .thenComparing(MonthlySalaryTrendView::getThang))
+                .collect(Collectors.toList());
+
+        List<HistoricalPointDTO> historicalList = new ArrayList<>();
+        for (MonthlySalaryTrendView v : sortedTrends) {
+            String ds = String.format("%04d-%02d-01", v.getNam(), v.getThang());
+            BigDecimal amount = v.getTongTienLuong() != null ? v.getTongTienLuong() : BigDecimal.ZERO;
+            historicalList.add(new HistoricalPointDTO(ds, v.getThang(), v.getNam(), amount));
+        }
+        return historicalList;
     }
 
     @CacheEvict(value = "salary_forecast", allEntries = true)

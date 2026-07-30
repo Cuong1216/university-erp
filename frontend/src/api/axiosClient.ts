@@ -41,6 +41,7 @@ axiosClient.interceptors.request.use(
       // Đọc tenantId từ localStorage (nếu có, ví dụ do người dùng chọn trường đại học khi đăng nhập)
       const tenantId = localStorage.getItem('tenantId') || 'public';
       config.headers['X-Tenant-ID'] = tenantId;
+      config.headers['X-Request-ID'] = crypto.randomUUID().split('-')[0].toUpperCase();
     }
     return config;
   },

@@ -12,6 +12,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.regex.Pattern;
+import org.slf4j.MDC;
 
 @Slf4j
 @Component
@@ -33,12 +34,14 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
             // Chống SQL Injection trong tên schema: chỉ cho phép chữ, số và dấu gạch dưới
             if (TENANT_PATTERN.matcher(tenantId).matches()) {
                 TenantContext.setTenantId(tenantId);
+                MDC.put("tenantId", tenantId);
             } else {
                 log.warn("CẢNH BÁO BẢO MẬT: Phát hiện định dạng X-Tenant-ID bất hợp lệ hoặc nghi vấn SQL Injection: {}", tenantId);
                 TenantContext.setTenantId(TenantContext.DEFAULT_TENANT);
             }
         } else {
             TenantContext.setTenantId(TenantContext.DEFAULT_TENANT);
+            MDC.put("tenantId", TenantContext.DEFAULT_TENANT);
         }
 
         try {

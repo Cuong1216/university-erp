@@ -55,6 +55,9 @@ management:
     health:
       show-details: when-authorized
       show-components: when-authorized
+  health:
+    circuitbreakers:
+      enabled: true
   metrics:
     tags:
       # Tag mọi metric với application name — giúp filter trong Grafana khi có nhiều service
@@ -100,3 +103,20 @@ websocket:
     host: ${WEBSOCKET_BROKER_HOST:localhost}
     login: ${ACTIVEMQ_LOGIN:admin}
     passcode: ${ACTIVEMQ_PASSWORD:admin123}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      forecastAiService:
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 8s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+  timelimiter:
+    instances:
+      forecastAiService:
+        timeout-duration: 10s
