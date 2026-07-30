@@ -48,6 +48,15 @@ public class LuongService implements ILuongService {
     private final SimpMessagingTemplate messagingTemplate;
     private final IDashboardService dashboardService;
 
+    /**
+     * Kiểm tra fine-grained authorization ở Service layer (không chỉ dựa vào @PreAuthorize ở Controller):
+     * - ADMIN và GIAO_VU: có thể chốt lương cho bất kỳ giảng viên nào
+     * - GIANG_VIEN: CHỈ được chốt lương cho chính mình (maGv phải khớp với account hiện tại)
+     *
+     * Lý do 2-layer authorization:
+     * - Controller: ngăn user không có role truy cập endpoint
+     * - Service: ngăn GIANG_VIEN chốt lương cho người khác (business rule)
+     */
     @Transactional
     @LogAuditAction(actionType = "CHOT_LUONG_THANG", entityName = "BangLuongThang", idExpression = "#result.maBangLuong")
     public ChotLuongResponseDTO chotLuongThang(ChotLuongRequestDTO request, CustomUserDetails currentUser) {

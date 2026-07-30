@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.wiz.universityerpapi.security.AuthorizationConstants;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -32,7 +33,7 @@ public class LuongController {
     private final SalaryExportService salaryExportService;
 
     @PostMapping("/chot-luong")
-    @PreAuthorize("hasAnyRole('ROLE_GIANG_VIEN', 'ROLE_GIAO_VU', 'ROLE_ADMIN')")
+    @PreAuthorize(AuthorizationConstants.CAN_MANAGE_PAYROLL)
     public ResponseEntity<Map<String, Object>> chotLuongThang(@Valid @RequestBody ChotLuongRequestDTO request,
                                                               @AuthenticationPrincipal CustomUserDetails currentUser) {
         luongService.chotLuongThangAsync(request, currentUser);
@@ -47,7 +48,7 @@ public class LuongController {
     }
 
     @GetMapping("/my-salary")
-    @PreAuthorize("hasAnyRole('ROLE_GIANG_VIEN', 'ROLE_GIAO_VU', 'ROLE_ADMIN')")
+    @PreAuthorize(AuthorizationConstants.CAN_MANAGE_PAYROLL)
     public ResponseEntity<List<MySalaryResponseDTO>> getMySalary(@RequestParam(value = "thang", required = false) Integer thang,
                                                                  @RequestParam(value = "nam", required = false) Integer nam,
                                                                  @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -55,7 +56,7 @@ public class LuongController {
     }
 
     @GetMapping("/export/excel")
-    @PreAuthorize("hasAnyRole('ROLE_GIAO_VU', 'ROLE_ADMIN')")
+    @PreAuthorize(AuthorizationConstants.CAN_VIEW_ALL_SALARY)
     public ResponseEntity<Resource> exportExcel(@RequestParam("thang") Integer thang,
                                                 @RequestParam("nam") Integer nam) {
         try {

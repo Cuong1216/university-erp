@@ -9,12 +9,15 @@ import com.wiz.universityerpapi.service.KhoaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.wiz.universityerpapi.security.AuthorizationConstants;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/danh-muc")
 @RequiredArgsConstructor
+@PreAuthorize(AuthorizationConstants.ADMIN_ONLY)
 public class DanhMucController {
 
     private final KhoaService khoaService;

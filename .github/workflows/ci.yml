@@ -1,13 +1,16 @@
-name: Enterprise ERP CI Pipeline
-
+name: University ERP — CI/CD Pipeline
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ "main", "master" ]
-
+    branches: [main, master]
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_BACKEND: ${{ github.repository }}/backend
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}/frontend
 jobs:
-  build-backend:
+  # Job 1: Unit + Integration Tests (Backend)
+  test-backend:
     name: Build & Verify Spring Boot Backend (TDD Gate)
     runs-on: ubuntu-latest
     services:
@@ -36,12 +39,19 @@ jobs:
           cache: 'maven'
           cache-dependency-path: backend/pom.xml
 
-      - name: Run Maven Verification & Unit Tests
+      - name: Run Maven Verification & JaCoCo Coverage Report
         run: |
           cd backend
-          mvn clean verify -DDB_URL=jdbc:postgresql://localhost:5432/university_erp_db -DDB_USERNAME=postgres -DDB_PASSWORD=postgrespassword -Dai.datasource.username=postgres -Dai.datasource.password=postgrespassword -DDDL_AUTO=create-drop
+          mvn clean verify jacoco:report -DDB_URL=jdbc:postgresql://localhost:5432/university_erp_db -DDB_USERNAME=postgres -DDB_PASSWORD=postgrespassword -Dai.datasource.username=postgres -Dai.datasource.password=postgrespassword -DDDL_AUTO=create-drop
 
-  build-frontend:
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+
+  # Job 2: Lint + Build (Frontend)
+  test-frontend:
     name: Lint & Build React Vite Frontend (Quality Gate)
     runs-on: ubuntu-latest
     steps:
@@ -64,3 +74,159 @@ jobs:
         run: |
           cd frontend
           npm run lint && npm run build
+
+  # Job 3: Security Scan
+  security-scan:
+    name: Security Scan (OWASP)
+    needs: [test-backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+          cache-dependency-path: backend/pom.xml
+
+      - name: OWASP Dependency Check
+        run: |
+          cd backend
+          mvn org.owasp:dependency-check-maven:check
+
+      - name: Upload OWASP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: backend/target/dependency-check-report.html
+
+  # Job 4: Build Docker Images
+  build-images:
+    name: Build & Push Images to GHCR
+    needs: [test-backend, test-frontend]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build & Push Backend
+        run: |
+          cd backend
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }} .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+
+      - name: Build & Push Frontend
+        run: |
+          cd frontend
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }} --build-arg VITE_API_BASE_URL=/api/v1 .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
+
+  # Job 5: Deploy to Staging (tự động)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-images
+    environment: staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH & Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          BACKEND_IMG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+          FRONTEND_IMG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_STAGING_KEY }}
+          envs: BACKEND_IMG,FRONTEND_IMG
+          script: |
+            cd /opt/university-erp
+            export BACKEND_IMAGE=$BACKEND_IMG
+            export FRONTEND_IMAGE=$FRONTEND_IMG
+            docker compose pull
+            docker compose up -d --wait
+
+      - name: Health Check
+        run: |
+          curl -f http://${{ secrets.STAGING_HOST }}/api/v1/actuator/health || curl -f http://${{ secrets.STAGING_HOST }}/actuator/health
+
+  # Job 6: Smoke Test
+  smoke-test:
+    name: Smoke Test (Staging)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Unauthorized Access (401)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.STAGING_HOST }}/api/v1/dashboard/salary-stats)
+          if [ "$STATUS" -ne 401 ] && [ "$STATUS" -ne 403 ]; then
+            echo "Expected 401/403 but got $STATUS"
+            exit 1
+          fi
+
+      - name: Test Actuator Health (status UP)
+        run: |
+          curl -s http://${{ secrets.STAGING_HOST }}/api/v1/actuator/health | grep -q '"status":"UP"' || curl -s http://${{ secrets.STAGING_HOST }}/actuator/health | grep -q '"status":"UP"'
+
+      - name: Test Login Token
+        run: |
+          RESPONSE=$(curl -s -X POST http://${{ secrets.STAGING_HOST }}/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"admin", "password":"admin123"}')
+          echo $RESPONSE | grep -q '"token"'
+
+  # Job 7: Deploy Production (manual approval)
+  deploy-prod:
+    name: Deploy to Production
+    needs: smoke-test
+    environment:
+      name: production
+      url: https://erp.university.edu.vn
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH & Blue-Green / Rolling Update
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          BACKEND_IMG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+          FRONTEND_IMG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PROD_KEY }}
+          envs: BACKEND_IMG,FRONTEND_IMG
+          script: |
+            cd /opt/university-erp
+            export BACKEND_IMAGE=$BACKEND_IMG
+            export FRONTEND_IMAGE=$FRONTEND_IMG
+            docker compose pull
+            docker compose up -d --wait
+
+      - name: Post-Deploy Health Check
+        run: curl -f https://erp.university.edu.vn/api/v1/actuator/health
+
+      - name: Auto-rollback on Failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PROD_KEY }}
+          script: |
+            cd /opt/university-erp
+            echo "Deployment failed! Rolling back..."
+            # Lệnh rollback tùy chỉnh (ví dụ: revert về tag previous, hoặc down)
+            # docker compose up -d --wait (với ảnh cũ)

@@ -94,3 +94,9 @@ forecast:
     semester2-multiplier: 1.05
     summer-months: "6,7"
     summer-multiplier: 1.0
+
+websocket:
+  broker:
+    host: ${WEBSOCKET_BROKER_HOST:localhost}
+    login: ${ACTIVEMQ_LOGIN:admin}
+    passcode: ${ACTIVEMQ_PASSWORD:admin123}
