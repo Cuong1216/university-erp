@@ -131,6 +131,9 @@ const MainLayout: React.FC = () => (
 );
 
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { GlobalNotification } from './components/common/GlobalNotification';
+
 export const App: React.FC = () => {
   const initAuth = useAuthStore((state) => state.initAuth);
 
@@ -139,17 +142,20 @@ export const App: React.FC = () => {
   }, [initAuth]);
 
   return (
-    <BrowserRouter>
-      <AxiosInterceptorSetup />
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/403" element={<ForbiddenPage />} />
+    <ErrorBoundary>
+      <GlobalNotification />
+      <BrowserRouter>
+        <AxiosInterceptorSetup />
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/403" element={<ForbiddenPage />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route path="/*" element={<MainLayout />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/*" element={<MainLayout />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 };
 

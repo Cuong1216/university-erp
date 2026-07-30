@@ -2,21 +2,32 @@ spring:
   application:
     name: university-erp-api
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/university_erp_db}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
-    # B4: HikariCP Connection Pool Tuning
-    # Công thức: (CPU_cores × 2) + effective_spindle_count
-    # Với server 4-core: 4×2+1=9, round up = 10-20 connections
-    hikari:
-      pool-name: ERP-HikariPool
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000       # 30s: thời gian tối đa chờ lấy connection từ pool
-      idle-timeout: 600000            # 10 phút: connection idle bị thu hồi
-      max-lifetime: 1800000           # 30 phút: connection tối đa sống bao lâu
-      leak-detection-threshold: 15000 # 15s: cảnh báo nếu connection bị giữ > 15s (phát hiện connection leak)
+    write:
+      url: ${DB_WRITE_URL:jdbc:postgresql://localhost:5432/university_erp_db}
+      username: ${DB_USERNAME:postgres}
+      password: ${DB_PASSWORD:postgres}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: ERP-WritePool
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+        leak-detection-threshold: 15000
+    read:
+      url: ${DB_READ_URL:${DB_WRITE_URL:jdbc:postgresql://localhost:5432/university_erp_db}}
+      username: ${DB_READ_USERNAME:${DB_USERNAME:postgres}}
+      password: ${DB_READ_PASSWORD:${DB_PASSWORD:postgres}}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: ERP-ReadPool
+        maximum-pool-size: 20
+        minimum-idle: 5
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+        leak-detection-threshold: 15000
   jpa:
     hibernate:
       ddl-auto: ${DDL_AUTO:update}
@@ -75,9 +86,9 @@ ai:
     connect-timeout: 3000   # ms
     read-timeout: 10000     # ms
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/university_erp_db}
-    username: ${AI_DB_USERNAME:${DB_USERNAME:erp_ai_readonly_user}}
-    password: ${AI_DB_PASSWORD:${DB_PASSWORD:secure_ai_db_password}}
+    url: ${DB_READ_URL:${DB_WRITE_URL:jdbc:postgresql://localhost:5432/university_erp_db}}
+    username: ${AI_DB_USERNAME:${DB_READ_USERNAME:${DB_USERNAME:erp_ai_readonly_user}}}
+    password: ${AI_DB_PASSWORD:${DB_READ_PASSWORD:${DB_PASSWORD:secure_ai_db_password}}}
     driver-class-name: org.postgresql.Driver
 
 langchain4j:

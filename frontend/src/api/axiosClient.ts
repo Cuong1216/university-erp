@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
+import { useNotificationStore } from '../store/useNotificationStore';
 
 type OnUnauthorizedCallback = () => void;
 let onUnauthorizedCallback: OnUnauthorizedCallback | null = null;
@@ -53,25 +54,56 @@ axiosClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const status = error.response?.status;
+    const config = error.config as InternalAxiosRequestConfig & { _retryCount?: number };
 
-    // Trường hợp 401: Hết hạn Token hoặc Token không hợp lệ
-    if (status === 401) {
-      if (!isRedirectingToLogin) {
-        isRedirectingToLogin = true;
-        
-        // Xóa state trong store và localStorage
-        useAuthStore.getState().logout();
+    // Retry mechanism cho network errors hoặc 5xx trên GET requests
+    const isNetworkError = !error.response && (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK');
+    const isServerError = status && status >= 500;
+    const isGetRequest = config?.method?.toLowerCase() === 'get';
 
-        if (onUnauthorizedCallback) {
-          onUnauthorizedCallback();
-        } else if (window.location.pathname !== '/login') {
-          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-        }
-
-        setTimeout(() => {
-          isRedirectingToLogin = false;
-        }, 1000);
+    if ((isNetworkError || isServerError) && isGetRequest && config) {
+      config._retryCount = config._retryCount || 0;
+      if (config._retryCount < 2) {
+        config._retryCount += 1;
+        // Exponential backoff: 1s, 2s
+        const backoff = Math.pow(2, config._retryCount - 1) * 1000;
+        await new Promise((resolve) => setTimeout(resolve, backoff));
+        return axiosClient(config);
       }
+    }
+
+    if (status) {
+      if (status === 401) {
+        if (!isRedirectingToLogin) {
+          isRedirectingToLogin = true;
+          
+          useAuthStore.getState().logout();
+          if (onUnauthorizedCallback) {
+            onUnauthorizedCallback();
+          } else if (window.location.pathname !== '/login') {
+            window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          }
+
+          setTimeout(() => {
+            isRedirectingToLogin = false;
+          }, 1000);
+        }
+      } else if (status === 403) {
+        window.location.href = '/403'; // Use /403 as defined in App.tsx routing instead of /forbidden
+      } else if (status === 429) {
+        const retryAfter = error.response?.headers['retry-after'] || 60;
+        useNotificationStore.getState().showError(
+          `Quá nhiều yêu cầu. Vui lòng thử lại sau ${retryAfter} giây.`
+        );
+      } else if (status >= 500) {
+        useNotificationStore.getState().showError(
+          'Hệ thống đang gặp sự cố. Đội kỹ thuật đã được thông báo.'
+        );
+      }
+    } else if (isNetworkError) {
+      useNotificationStore.getState().showError(
+        'Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền của bạn.'
+      );
     }
 
     return Promise.reject(error);
