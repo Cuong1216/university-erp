@@ -37,6 +37,12 @@ export interface ScheduleOptimizationResponse {
   message: string;
 }
 
+export interface ScheduleOptimizationJobResponse {
+  requestId: string;
+  status: string; // e.g., 'PROCESSING'
+  message: string;
+}
+
 export const scheduleOptimizationApi = {
   getSampleClasses: async (): Promise<ClassRequirement[]> => {
     const response = await axiosClient.get<ClassRequirement[]>('/schedule/sample-classes');
@@ -45,10 +51,19 @@ export const scheduleOptimizationApi = {
 
   optimizeSchedule: async (
     request: ScheduleOptimizationRequest
-  ): Promise<ScheduleOptimizationResponse> => {
-    const response = await axiosClient.post<ScheduleOptimizationResponse>(
+  ): Promise<ScheduleOptimizationJobResponse> => {
+    const response = await axiosClient.post<ScheduleOptimizationJobResponse>(
       '/schedule/optimize',
       request
+    );
+    return response.data;
+  },
+
+  getOptimizationStatus: async (
+    requestId: string
+  ): Promise<ScheduleOptimizationResponse | ScheduleOptimizationJobResponse> => {
+    const response = await axiosClient.get<ScheduleOptimizationResponse | ScheduleOptimizationJobResponse>(
+      `/schedule/optimize/status/${requestId}`
     );
     return response.data;
   },

@@ -62,4 +62,25 @@ public class ScheduleOptimizationDTOs {
         private Integer tietKetThuc;
         private List<Integer> danhSachTuan;
     }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ScheduleOptimizationJobResponseDTO {
+        private String requestId;
+        private String status; // e.g., PROCESSING, COMPLETED, FAILED
+        private String message;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ScheduleJobDTO implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+        private String requestId;
+        private ScheduleOptimizationRequestDTO requestPayload;
+        private String requestedByUsername;
+    }
 }
