@@ -63,17 +63,36 @@ export const AutoScheduleModal: React.FC<AutoScheduleModalProps> = ({ isOpen, on
     setError(null);
     setResult(null);
     try {
-      const resp = await scheduleOptimizationApi.optimizeSchedule({
+      const jobResp = await scheduleOptimizationApi.optimizeSchedule({
         classesToSchedule: classes,
         availableDays: selectedDays,
         startPeriods: selectedPeriods,
       });
-      setResult(resp);
+      
+      const requestId = jobResp.requestId;
+      pollForStatus(requestId);
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
       setError(err?.response?.data?.message || 'Lỗi kết nối tới dịch vụ AI Schedule Optimization Solver.');
-    } finally {
+      setSolving(false);
+    }
+  };
+
+  const pollForStatus = async (requestId: string) => {
+    try {
+      const resp = await scheduleOptimizationApi.getOptimizationStatus(requestId);
+      
+      if (resp.status === 'PROCESSING') {
+        setTimeout(() => pollForStatus(requestId), 2000);
+      } else {
+        setResult(resp as ScheduleOptimizationResponse);
+        setSolving(false);
+      }
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
+      setError(err?.response?.data?.message || 'Lỗi kiểm tra trạng thái tiến trình AI.');
       setSolving(false);
     }
   };
