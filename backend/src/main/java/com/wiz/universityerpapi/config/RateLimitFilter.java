@@ -14,7 +14,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.web.util.matcher.IpAddressMatcher;
 
 /**
  * HTTP Filter thực thi Rate Limiting cho các endpoint nhạy cảm.
@@ -41,6 +44,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     // Export: 3 requests / 60 giây per user
     private static final int EXPORT_MAX_REQUESTS = 3;
     private static final int EXPORT_WINDOW_SECONDS = 60;
+
+    @Value("#{'${app.security.trusted-proxy-ips:}'.split(',')}")
+    private List<String> trustedProxyIps;
 
     private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
@@ -106,16 +112,43 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /**
      * Lấy IP thực của client, hỗ trợ reverse proxy (Nginx, CloudFlare).
      */
+    private boolean isTrustedIp(String ip) {
+        if (trustedProxyIps == null || trustedProxyIps.isEmpty() || ip == null) {
+            return false;
+        }
+        return trustedProxyIps.stream()
+                .filter(proxy -> proxy != null && !proxy.isBlank())
+                .anyMatch(proxy -> {
+                    try {
+                        return new IpAddressMatcher(proxy.trim()).matches(ip);
+                    } catch (Exception e) {
+                        return proxy.trim().equals(ip);
+                    }
+                });
+    }
+
     private String getClientIp(HttpServletRequest request) {
+        String remoteAddr = request.getRemoteAddr();
+        String xRealIp = request.getHeader("X-Real-IP");
+        
+        boolean isTrustedProxy = isTrustedIp(remoteAddr) || isTrustedIp(xRealIp);
+
         String xForwardedFor = request.getHeader("X-Forwarded-For");
         if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            // Lấy IP đầu tiên trong chuỗi (IP thực của client)
-            return xForwardedFor.split(",")[0].trim();
+            if (isTrustedProxy) {
+                // Lấy IP đầu tiên trong chuỗi (IP thực của client)
+                return xForwardedFor.split(",")[0].trim();
+            } else {
+                log.warn("X-Forwarded-For header received from non-trusted IP {}. Ignoring.", remoteAddr);
+            }
         }
-        String xRealIp = request.getHeader("X-Real-IP");
+        
         if (xRealIp != null && !xRealIp.isBlank()) {
-            return xRealIp.trim();
+            if (isTrustedProxy) {
+                return xRealIp.trim();
+            }
         }
-        return request.getRemoteAddr();
+        
+        return remoteAddr;
     }
 }

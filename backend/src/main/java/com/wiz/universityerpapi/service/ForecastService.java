@@ -47,11 +47,32 @@ public class ForecastService {
     @Value("${forecast.seasonal.summer-multiplier:1.0}")
     private double summerMultiplier;
 
+    private Set<Integer> semester1Months;
+    private Set<Integer> semester2Months;
+    private Set<Integer> summerMonths;
+
     public ForecastService(
             BangLuongThangRepository bangLuongThangRepository,
             @Qualifier("forecastRestClient") RestClient restClient) {
         this.bangLuongThangRepository = bangLuongThangRepository;
         this.restClient = restClient;
+    }
+
+    @jakarta.annotation.PostConstruct
+    private void init() {
+        this.semester1Months = parseMonths(semester1MonthsStr);
+        this.semester2Months = parseMonths(semester2MonthsStr);
+        this.summerMonths = parseMonths(summerMonthsStr);
+    }
+
+    private Set<Integer> parseMonths(String monthsStr) {
+        if (monthsStr == null || monthsStr.isBlank()) {
+            return Collections.emptySet();
+        }
+        return Arrays.stream(monthsStr.split(","))
+            .map(String::trim)
+            .map(Integer::parseInt)
+            .collect(Collectors.toSet());
     }
 
     @Transactional(readOnly = true)
@@ -175,11 +196,12 @@ public class ForecastService {
             String ds = String.format("%04d-%02d-01", nextYear, nextMonth);
             
             double seasonalMult = 1.0;
-            if (Arrays.stream(semester1MonthsStr.split(",")).map(String::trim).map(Integer::parseInt).anyMatch(m -> m == nextMonth)) {
+            final int finalNextMonth = nextMonth;
+            if (semester1Months.contains(finalNextMonth)) {
                 seasonalMult = semester1Multiplier;
-            } else if (Arrays.stream(semester2MonthsStr.split(",")).map(String::trim).map(Integer::parseInt).anyMatch(m -> m == nextMonth)) {
+            } else if (semester2Months.contains(finalNextMonth)) {
                 seasonalMult = semester2Multiplier;
-            } else if (Arrays.stream(summerMonthsStr.split(",")).map(String::trim).map(Integer::parseInt).anyMatch(m -> m == nextMonth)) {
+            } else if (summerMonths.contains(finalNextMonth)) {
                 seasonalMult = summerMultiplier;
             }
             double val = avg * (1 + 0.015 * i) * seasonalMult;
