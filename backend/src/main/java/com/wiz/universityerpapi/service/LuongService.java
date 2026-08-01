@@ -12,7 +12,7 @@ import com.wiz.universityerpapi.exception.BusinessRuleViolationException;
 import com.wiz.universityerpapi.exception.ConflictException;
 import com.wiz.universityerpapi.exception.ResourceNotFoundException;
 import com.wiz.universityerpapi.repository.BangLuongThangRepository;
-import com.wiz.universityerpapi.repository.CauHinhLuongRepository;
+import com.wiz.universityerpapi.service.CauHinhLuongService;
 import com.wiz.universityerpapi.repository.NhatKyGiangDayRepository;
 import com.wiz.universityerpapi.repository.UserRepository;
 import com.wiz.universityerpapi.repository.projection.GiangVienHeSoView;
@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import com.wiz.universityerpapi.aop.LogAuditAction;
 import com.wiz.universityerpapi.security.CustomUserDetails;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Async;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,13 +39,14 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class LuongService implements ILuongService {
 
-    private final CauHinhLuongRepository cauHinhLuongRepository;
+    private final CauHinhLuongService cauHinhLuongService;
     private final NhatKyGiangDayRepository nhatKyGiangDayRepository;
     private final BangLuongThangRepository bangLuongThangRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
     private final IDashboardService dashboardService;
+    private final SalaryCalculationDomainService salaryCalculationDomainService = new SalaryCalculationDomainService();
 
     /**
      * Kiểm tra fine-grained authorization ở Service layer (không chỉ dựa vào @PreAuthorize ở Controller):
@@ -107,9 +107,8 @@ public class LuongService implements ILuongService {
             throw new ConflictException(String.format("Bảng lương tháng %d/%d của giảng viên %s đã được chốt trước đó", thang, nam, maGv));
         }
 
-        // 1. Lấy cấu hình lương (lương cơ bản, đơn giá) đang Active từ bảng CAU_HINH_LUONG
-        CauHinhLuong cauHinh = cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình lương đang ACTIVE trong hệ thống"));
+        // 1. Lấy cấu hình lương (lương cơ bản, đơn giá) đang Active thông qua Cache
+        CauHinhLuong cauHinh = cauHinhLuongService.getActiveCauHinh();
 
         // 2. Lấy tổng số tiết thực tế của Giảng viên trong tháng/năm đó từ bảng NHAT_KY_GIANG_DAY mà trang_thai_thanh_toan = false
         LocalDate tuNgay = LocalDate.of(nam, thang, 1);
@@ -131,11 +130,8 @@ public class LuongService implements ILuongService {
         BigDecimal donGiaTietSnapshot = cauHinh.getDonGiaTietChuan();
         BigDecimal luongCoBanSnapshot = cauHinh.getLuongCoBan();
 
-        BigDecimal tienGiangDay = BigDecimal.valueOf(tongSoTietThucTe)
-                .multiply(donGiaTietSnapshot)
-                .multiply(heSoCdSnapshot)
-                .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal tongTienLuong = luongCoBanSnapshot.add(tienGiangDay).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tienGiangDay = salaryCalculationDomainService.calculateTienGiangDay(tongSoTietThucTe, donGiaTietSnapshot, heSoCdSnapshot);
+        BigDecimal tongTienLuong = salaryCalculationDomainService.calculateTongTienLuong(luongCoBanSnapshot, tienGiangDay);
 
         String maBangLuong = String.format("BL-%s-%02d%d-%s", maGv, thang, nam, UUID.randomUUID().toString().substring(0, 6).toUpperCase());
 
@@ -252,28 +248,10 @@ public class LuongService implements ILuongService {
 
         try {
             ChotLuongResponseDTO result = this.chotLuongThang(request, currentUser);
-
-            Map<String, Object> payload = Map.of(
-                    "type", "CHOT_LUONG_SUCCESS",
-                    "status", "SUCCESS",
-                    "message", String.format("🎉 Chốt lương thành công cho giảng viên %s (Tháng %d/%d)!", maGv, thang, nam),
-                    "data", result,
-                    "timestamp", System.currentTimeMillis()
-            );
-
-            messagingTemplate.convertAndSendToUser(username, "/queue/notifications", payload);
-            log.info("Đã gửi thông báo WebSocket thành công tới user: {}", username);
-
+            notificationService.sendPayrollSuccessNotification(username, maGv, thang, nam, result);
         } catch (Exception ex) {
             log.error("Lỗi khi xử lý chốt lương bất đồng bộ cho GV: {}", maGv, ex);
-
-            Map<String, Object> errorPayload = Map.of(
-                    "type", "CHOT_LUONG_ERROR",
-                    "status", "ERROR",
-                    "message", String.format("❌ Chốt lương thất bại (Tháng %d/%d cho %s): %s", thang, nam, maGv, ex.getMessage()),
-                    "timestamp", System.currentTimeMillis()
-            );
-            messagingTemplate.convertAndSendToUser(username, "/queue/notifications", errorPayload);
+            notificationService.sendPayrollErrorNotification(username, maGv, thang, nam, ex.getMessage());
         }
 
         return CompletableFuture.completedFuture(null);

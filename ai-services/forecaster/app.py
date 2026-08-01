@@ -7,8 +7,13 @@ import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import json, os
+import joblib
 
-def load_seasonal_config():
+MODEL_STORE_DIR = "model_store"
+PROPHET_MODEL_PATH = os.path.join(MODEL_STORE_DIR, "prophet_model.pkl")
+
+# Global cache for the loaded model
+_cached_prophet_model = Nonedef load_seasonal_config():
     return {
         "semester1_months": list(map(int, os.getenv("SEMESTER1_MONTHS", "9,10").split(","))),
         "semester1_multiplier": float(os.getenv("SEMESTER1_MULTIPLIER", "1.12")),
@@ -42,7 +47,7 @@ class DataPoint(BaseModel):
     y: float # Salary cost
 
 class ForecastRequest(BaseModel):
-    history: List[DataPoint]
+    history: Optional[List[DataPoint]] = []
     periods: Optional[int] = 6  # Default predict next 6 months
 
 class ForecastPoint(BaseModel):
@@ -65,53 +70,58 @@ def get_config():
 
 @app.post("/forecast", response_model=ForecastResponse)
 def forecast_salary(req: ForecastRequest):
-    logger.info(f"Received salary forecast request with {len(req.history)} history data points for {req.periods} periods.")
+    global _cached_prophet_model
     
-    if not req.history or len(req.history) < 2:
-        raise HTTPException(status_code=400, detail="Cần ít nhất 2 tháng dữ liệu lịch sử để thực hiện dự báo chi phí lương.")
+    logger.info(f"Received salary forecast request for {req.periods} periods.")
+    
+    periods = req.periods if req.periods and req.periods > 0 else 6
 
+    # Attempt to load the pre-trained Prophet model
+    model_used = "Prophet (Time Series & Seasonality Engine)"
+    try:
+        if _cached_prophet_model is None:
+            if not os.path.exists(PROPHET_MODEL_PATH):
+                raise FileNotFoundError(f"Model file not found at {PROPHET_MODEL_PATH}")
+            logger.info("Loading Prophet model from disk...")
+            _cached_prophet_model = joblib.load(PROPHET_MODEL_PATH)
+        
+        m = _cached_prophet_model
+        
+        future = m.make_future_dataframe(periods=periods, freq='MS')
+        forecast_df = m.predict(future)
+        
+        # Get future points (after the last date in the training data history)
+        last_history_date = m.history_dates.max()
+        future_only = forecast_df[forecast_df['ds'] > last_history_date].head(periods)
+
+        result = []
+        for _, row in future_only.iterrows():
+            result.append(ForecastPoint(
+                ds=row['ds'].strftime("%Y-%m-%d"),
+                yhat=round(float(row['yhat']), 2),
+                yhat_lower=round(float(row['yhat_lower']), 2),
+                yhat_upper=round(float(row['yhat_upper']), 2)
+            ))
+        return ForecastResponse(model_used=model_used, forecast=result)
+        
+    except FileNotFoundError as e:
+        logger.error(f"Prophet model not available: {str(e)}")
+        # If we have history in the request, fallback to Harmonic Regression
+        if not req.history or len(req.history) < 2:
+            raise HTTPException(status_code=503, detail="Mô hình Prophet chưa sẵn sàng (đang train). Vui lòng cung cấp 'history' để dùng mô hình dự phòng, hoặc thử lại sau.")
+        logger.warning("Switching to Harmonic Trend Regression due to missing Prophet model.")
+        
+    except Exception as e:
+        logger.error(f"Prophet execution failed: {str(e)}")
+        if not req.history or len(req.history) < 2:
+            raise HTTPException(status_code=500, detail="Lỗi dự báo Prophet và không đủ dữ liệu history để dùng mô hình dự phòng.")
+        logger.warning("Switching to Harmonic Trend Regression.")
+
+    # Fallback/Hybrid engine: Linear Trend + Semester Fourier Seasonality
+    model_used = "Harmonic Fourier Trend Regression (Hybrid Engine)"
     df = pd.DataFrame([{"ds": pd.to_datetime(p.ds), "y": float(p.y)} for p in req.history])
     df = df.sort_values("ds").reset_index(drop=True)
 
-    periods = req.periods if req.periods and req.periods > 0 else 6
-
-    # Thử sử dụng Prophet nếu có đủ dữ liệu (>= 4 tháng) và thư viện sẵn sàng
-    model_used = "Prophet (Time Series & Seasonality Engine)"
-    try:
-        if len(df) >= 4:
-            from prophet import Prophet
-            m = Prophet(
-                seasonality_mode='multiplicative',
-                yearly_seasonality=False,
-                weekly_seasonality=False,
-                daily_seasonality=False
-            )
-            # Thêm chu kỳ học kỳ (6 tháng / 180 ngày)
-            m.add_seasonality(name='semester', period=182.5, fourier_order=3)
-            m.fit(df)
-
-            future = m.make_future_dataframe(periods=periods, freq='MS')
-            forecast_df = m.predict(future)
-            
-            # Lấy các điểm trong tương lai (sau ngày cuối cùng của history)
-            last_history_date = df['ds'].max()
-            future_only = forecast_df[forecast_df['ds'] > last_history_date].head(periods)
-
-            result = []
-            for _, row in future_only.iterrows():
-                result.append(ForecastPoint(
-                    ds=row['ds'].strftime("%Y-%m-%d"),
-                    yhat=round(float(row['yhat']), 2),
-                    yhat_lower=round(float(row['yhat_lower']), 2),
-                    yhat_upper=round(float(row['yhat_upper']), 2)
-                ))
-            return ForecastResponse(model_used=model_used, forecast=result)
-    except Exception as e:
-        logger.warning(f"Prophet execution failed or insufficient data ({str(e)}), switching to Harmonic Trend Regression.")
-        model_used = "Harmonic Fourier Trend Regression (Hybrid Engine)"
-
-    # Fallback/Hybrid engine: Linear Trend + Semester Fourier Seasonality
-    # Xây dựng mô hình hồi quy OLS trên time index + Fourier terms (học kỳ 6 tháng)
     n = len(df)
     t = np.arange(n)
     y = df['y'].values
@@ -148,3 +158,4 @@ def forecast_salary(req: ForecastRequest):
         ))
 
     return ForecastResponse(model_used=model_used, forecast=result)
+
