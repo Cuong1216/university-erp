@@ -77,7 +77,6 @@ public class ForecastService {
 
     @Transactional(readOnly = true)
     @io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker(name = "forecastAiService", fallbackMethod = "fallbackForecast")
-    @io.github.resilience4j.timelimiter.annotation.TimeLimiter(name = "forecastAiService")
     @Cacheable(value = "salary_forecast", key = "'trend_forecast'")
     public SalaryForecastResponseDTO getSalaryForecast(int periods) {
         log.info("Tính toán và dự báo quỹ lương cho {} kỳ tới qua AI microservice...", periods);

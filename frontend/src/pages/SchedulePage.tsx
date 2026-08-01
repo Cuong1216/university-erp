@@ -4,7 +4,7 @@ import { AutoScheduleModal } from '../components/schedule/AutoScheduleModal';
 import type { ScheduledSlot } from '../api/scheduleOptimizationApi';
 
 export const SchedulePage: React.FC = () => {
-  const { roles } = useAuthStore();
+  const { roles, userInfo } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [scheduledSlots, setScheduledSlots] = useState<ScheduledSlot[]>([
@@ -18,6 +18,7 @@ export const SchedulePage: React.FC = () => {
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
   const isAdminOrGiaoVu = roles.some((r) => r === 'ROLE_ADMIN' || r === 'ROLE_GIAO_VU');
+  const isGiangVien = roles.some((r) => r === 'ROLE_GIANG_VIEN');
 
   const handleApplySchedule = (newSlots: ScheduledSlot[]) => {
     setScheduledSlots(newSlots);
@@ -35,9 +36,18 @@ export const SchedulePage: React.FC = () => {
     return `Tiết ${startP}-${startP + 2}`;
   };
 
-  const filteredSlots = selectedDayFilter === 'ALL'
+  let filteredSlots = selectedDayFilter === 'ALL'
     ? scheduledSlots
     : scheduledSlots.filter((slot) => slot.thuTrongTuan === selectedDayFilter);
+
+  // Phân quyền: Giảng viên chỉ xem lịch của chính mình
+  if (isGiangVien && !isAdminOrGiaoVu) {
+    filteredSlots = filteredSlots.filter((slot) => {
+      const isMatchTen = slot.tenGiangVien && userInfo?.fullName && slot.tenGiangVien.includes(userInfo.fullName);
+      const isMatchMa = slot.maGv && userInfo?.username && slot.maGv === userInfo.username;
+      return isMatchTen || isMatchMa;
+    });
+  }
 
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>

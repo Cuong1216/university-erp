@@ -43,6 +43,7 @@ public class RoutingDataSourceConfig {
         ReadWriteRoutingDataSource routing = new ReadWriteRoutingDataSource();
         routing.setTargetDataSources(Map.of("WRITE", write, "READ", read));
         routing.setDefaultTargetDataSource(write);
+        routing.afterPropertiesSet();
         return new LazyConnectionDataSourceProxy(routing);
     }
 }
