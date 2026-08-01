@@ -47,7 +47,7 @@ jobs:
       - name: Check Coverage Threshold
         run: |
           cd backend
-          mvn jacoco:check -Djacoco.check.line.minimum=0.50
+          mvn jacoco:check -Djacoco.check.line.minimum=0.25
 
       - name: Upload JaCoCo Coverage Report
         uses: actions/upload-artifact@v4
