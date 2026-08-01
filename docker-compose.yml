@@ -44,7 +44,28 @@ services:
       timeout: 5s
       retries: 5
     networks:
+    networks:
       - erp-network
+
+  # ==========================================
+  # Service 1C: PgBouncer (Connection Pooler)
+  # ==========================================
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1
+    container_name: erp-pgbouncer
+    restart: always
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - erp-network
+
+  # ==========================================
   # Service 2: Redis Caching Layer
   # ==========================================
   redis:
@@ -74,8 +95,8 @@ services:
     container_name: erp-backend
     restart: always
     environment:
-      # Kết nối tới postgres thông qua hostname 'postgres' (service name) và port 5432
-      DB_WRITE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-university_erp_db}
+      # Kết nối tới postgres thông qua PgBouncer (port 6432)
+      DB_WRITE_URL: jdbc:postgresql://pgbouncer:6432/${POSTGRES_DB:-university_erp_db}
       DB_READ_URL: jdbc:postgresql://postgres-replica:5432/${POSTGRES_DB:-university_erp_db}
       DB_USERNAME: ${POSTGRES_USER:-postgres}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-54342}
@@ -92,6 +113,8 @@ services:
         condition: service_healthy
       postgres-replica:
         condition: service_healthy
+      pgbouncer:
+        condition: service_started
       redis:
         condition: service_healthy
     ports:

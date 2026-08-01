@@ -14,7 +14,7 @@ import java.util.List;
 public interface LichHocChiTietRepository extends JpaRepository<LichHocChiTiet, String> {
 
     @Query("SELECT th FROM TuanHocChiTiet th " +
-           "JOIN th.lichHocChiTiet lh " +
+           "JOIN FETCH th.lichHocChiTiet lh " +
            "WHERE lh.phongHoc = :phongHoc " +
            "AND lh.thuTrongTuan = :thuTrongTuan " +
            "AND th.tuanThu IN :danhSachTuan " +
@@ -26,7 +26,7 @@ public interface LichHocChiTietRepository extends JpaRepository<LichHocChiTiet, 
                                                      @Param("danhSachTuan") List<Integer> danhSachTuan);
 
     @Query("SELECT th AS tuanHocChiTiet, pc.maGv AS maGv FROM TuanHocChiTiet th " +
-           "JOIN th.lichHocChiTiet lh " +
+           "JOIN FETCH th.lichHocChiTiet lh " +
            "JOIN PhanCongDay pc ON pc.maLopHp = lh.maLopHp " +
            "WHERE pc.maGv IN :danhSachMaGv " +
            "AND lh.thuTrongTuan = :thuTrongTuan " +
