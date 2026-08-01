@@ -3,6 +3,7 @@ package com.wiz.universityerpapi.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import com.wiz.universityerpapi.schedule.infrastructure.entity.GiangVien;
 
 @Entity
 @Table(name = "chung_chi")

@@ -17,13 +17,4 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.username = :username")
     Optional<User> findByUsernameWithRoles(@Param("username") String username);
-
-    @Query(value = """
-            SELECT cd.he_so_cd as heSoCd, COALESCE(hv.he_so_hv, 1.00) as heSoHv FROM giang_vien gv 
-            LEFT JOIN chuc_danh cd ON gv.ma_cd = cd.ma_cd 
-            LEFT JOIN hoc_vi hv ON gv.ma_hv = hv.ma_hv 
-            WHERE gv.ma_gv = :maGv OR gv.user_id = (SELECT u.id FROM users u WHERE u.username = :maGv)
-            LIMIT 1
-            """, nativeQuery = true)
-    Optional<com.wiz.universityerpapi.repository.projection.GiangVienHeSoView> findHeSoByMaGv(@Param("maGv") String maGv);
 }

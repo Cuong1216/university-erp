@@ -2,7 +2,7 @@ package com.wiz.universityerpapi.controller;
 
 import com.wiz.universityerpapi.dto.payment.PaymentDTOs.*;
 import com.wiz.universityerpapi.service.VNPayService;
-import com.wiz.universityerpapi.util.VNPayUtil;
+import com.wiz.universityerpapi.core.util.VNPayUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

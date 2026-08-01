@@ -3,6 +3,7 @@ package com.wiz.universityerpapi.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
+import com.wiz.universityerpapi.schedule.infrastructure.entity.LopHocPhan;
 
 @Entity
 @Table(name = "ket_qua_hoc_tap")
