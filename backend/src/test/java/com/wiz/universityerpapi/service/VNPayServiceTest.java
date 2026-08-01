@@ -1,11 +1,11 @@
 package com.wiz.universityerpapi.service;
 
-import com.wiz.universityerpapi.config.VNPayConfig;
+import com.wiz.universityerpapi.core.config.VNPayConfig;
 import com.wiz.universityerpapi.dto.payment.PaymentDTOs.VNPayWebhookResponseDTO;
 import com.wiz.universityerpapi.entity.HocPhi;
 import com.wiz.universityerpapi.repository.HocPhiRepository;
 import com.wiz.universityerpapi.repository.ThanhToanLogRepository;
-import com.wiz.universityerpapi.util.VNPayUtil;
+import com.wiz.universityerpapi.core.util.VNPayUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

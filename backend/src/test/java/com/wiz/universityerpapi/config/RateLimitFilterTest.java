@@ -9,6 +9,8 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.wiz.universityerpapi.core.config.RateLimitFilter;
+
 class RateLimitFilterTest {
 
     private RateLimitFilter rateLimitFilter;

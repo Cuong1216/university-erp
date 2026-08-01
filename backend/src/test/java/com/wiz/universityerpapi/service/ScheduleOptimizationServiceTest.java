@@ -1,9 +1,10 @@
 package com.wiz.universityerpapi.service;
 
-import com.wiz.universityerpapi.dto.schedule.ScheduleOptimizationDTOs.ClassRequirementDTO;
-import com.wiz.universityerpapi.dto.schedule.ScheduleOptimizationDTOs.ScheduleOptimizationRequestDTO;
-import com.wiz.universityerpapi.dto.schedule.ScheduleOptimizationDTOs.ScheduleOptimizationResponseDTO;
-import com.wiz.universityerpapi.exception.BusinessRuleViolationException;
+import com.wiz.universityerpapi.schedule.application.dto.ScheduleOptimizationDTOs.ClassRequirementDTO;
+import com.wiz.universityerpapi.schedule.application.dto.ScheduleOptimizationDTOs.ScheduleOptimizationRequestDTO;
+import com.wiz.universityerpapi.schedule.application.dto.ScheduleOptimizationDTOs.ScheduleOptimizationResponseDTO;
+import com.wiz.universityerpapi.core.exception.BusinessRuleViolationException;
+import com.wiz.universityerpapi.schedule.application.service.ScheduleOptimizationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,8 +20,8 @@ class ScheduleOptimizationServiceTest {
     @BeforeEach
     void setUp() {
         scheduleOptimizationService = new ScheduleOptimizationService(
-                new com.wiz.universityerpapi.service.schedule.CpSatSchedulerEngine(),
-                new com.wiz.universityerpapi.service.schedule.GreedySchedulerEngine()
+                new com.wiz.universityerpapi.schedule.application.service.CpSatSchedulerEngine(),
+                new com.wiz.universityerpapi.schedule.application.service.GreedySchedulerEngine()
         );
     }
 

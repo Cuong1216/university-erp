@@ -1,11 +1,11 @@
 package com.wiz.universityerpapi.service;
 
-import com.wiz.universityerpapi.dto.DepartmentSalaryDTO;
-import com.wiz.universityerpapi.dto.MonthlySalaryTrendDTO;
-import com.wiz.universityerpapi.dto.SalaryStatsResponseDTO;
-import com.wiz.universityerpapi.repository.BangLuongThangRepository;
-import com.wiz.universityerpapi.repository.projection.DepartmentSalaryView;
-import com.wiz.universityerpapi.repository.projection.MonthlySalaryTrendView;
+import com.wiz.universityerpapi.payroll.application.dto.DepartmentSalaryDTO;
+import com.wiz.universityerpapi.payroll.application.dto.MonthlySalaryTrendDTO;
+import com.wiz.universityerpapi.payroll.application.dto.SalaryStatsResponseDTO;
+import com.wiz.universityerpapi.payroll.infrastructure.repository.BangLuongThangRepository;
+import com.wiz.universityerpapi.payroll.infrastructure.repository.projection.DepartmentSalaryView;
+import com.wiz.universityerpapi.payroll.infrastructure.repository.projection.MonthlySalaryTrendView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;

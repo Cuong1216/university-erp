@@ -1,20 +1,21 @@
 package com.wiz.universityerpapi.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wiz.universityerpapi.dto.ChotLuongRequestDTO;
-import com.wiz.universityerpapi.dto.ChotLuongResponseDTO;
-import com.wiz.universityerpapi.dto.MySalaryResponseDTO;
-import com.wiz.universityerpapi.entity.BangLuongThang;
-import com.wiz.universityerpapi.entity.CauHinhLuong;
-import com.wiz.universityerpapi.entity.NhatKyGiangDay;
-import com.wiz.universityerpapi.exception.BusinessRuleViolationException;
-import com.wiz.universityerpapi.exception.ConflictException;
-import com.wiz.universityerpapi.repository.BangLuongThangRepository;
-import com.wiz.universityerpapi.repository.CauHinhLuongRepository;
-import com.wiz.universityerpapi.repository.NhatKyGiangDayRepository;
+import com.wiz.universityerpapi.payroll.application.dto.ChotLuongRequestDTO;
+import com.wiz.universityerpapi.payroll.application.dto.ChotLuongResponseDTO;
+import com.wiz.universityerpapi.payroll.application.dto.MySalaryResponseDTO;
+import com.wiz.universityerpapi.payroll.infrastructure.entity.BangLuongThang;
+import com.wiz.universityerpapi.payroll.infrastructure.entity.CauHinhLuong;
+import com.wiz.universityerpapi.schedule.application.dto.GiangVienHeSoDTO;
+import com.wiz.universityerpapi.schedule.application.dto.UnpaidLogDTO;
+import com.wiz.universityerpapi.schedule.application.facade.ScheduleFacade;
+import com.wiz.universityerpapi.payroll.application.service.LuongService;
+import com.wiz.universityerpapi.payroll.application.service.CauHinhLuongService;
+import com.wiz.universityerpapi.payroll.infrastructure.repository.BangLuongThangRepository;
 import com.wiz.universityerpapi.repository.UserRepository;
-import com.wiz.universityerpapi.repository.projection.GiangVienHeSoView;
-import com.wiz.universityerpapi.security.CustomUserDetails;
+import com.wiz.universityerpapi.core.security.CustomUserDetails;
+import com.wiz.universityerpapi.core.exception.BusinessRuleViolationException;
+import com.wiz.universityerpapi.core.exception.ConflictException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,9 +39,9 @@ import static org.mockito.Mockito.*;
 class LuongServiceTest {
 
     @Mock
-    private CauHinhLuongRepository cauHinhLuongRepository;
+    private CauHinhLuongService cauHinhLuongService;
     @Mock
-    private NhatKyGiangDayRepository nhatKyGiangDayRepository;
+    private ScheduleFacade scheduleFacade;
     @Mock
     private BangLuongThangRepository bangLuongThangRepository;
     @Mock
@@ -73,18 +74,18 @@ class LuongServiceTest {
         CauHinhLuong cauHinh = new CauHinhLuong();
         cauHinh.setLuongCoBan(new BigDecimal("5000000"));
         cauHinh.setDonGiaTietChuan(new BigDecimal("100000"));
-        when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.of(cauHinh));
+        when(cauHinhLuongService.getActiveCauHinh()).thenReturn(cauHinh);
 
-        NhatKyGiangDay nk = new NhatKyGiangDay();
+        UnpaidLogDTO nk = new UnpaidLogDTO();
         nk.setSoTietThucTe(10);
         nk.setNgayDayThucTe(LocalDate.of(2023, 5, 10));
-        when(nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
+        when(scheduleFacade.getUnpaidLogs(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(Collections.singletonList(nk));
 
-        GiangVienHeSoView heSoView = mock(GiangVienHeSoView.class);
+        GiangVienHeSoDTO heSoView = mock(GiangVienHeSoDTO.class);
         when(heSoView.getHeSoCd()).thenReturn(new BigDecimal("1.2"));
         when(heSoView.getHeSoHv()).thenReturn(new BigDecimal("1.1"));
-        when(userRepository.findHeSoByMaGv("GV001")).thenReturn(Optional.of(heSoView));
+        when(scheduleFacade.getHeSoByMaGv("GV001")).thenReturn(heSoView);
 
         when(objectMapper.writeValueAsString(anyMap())).thenReturn("{}");
 
@@ -106,7 +107,7 @@ class LuongServiceTest {
         assertEquals("GV001", response.getMaGv());
         assertEquals(new BigDecimal("6200000.00"), response.getTongTienLuong());
         verify(bangLuongThangRepository).save(any(BangLuongThang.class));
-        verify(nhatKyGiangDayRepository).markAsPaid(anyString(), anyList());
+        verify(scheduleFacade).markAsPaid(anyString(), anyList());
         verify(dashboardService).invalidateDashboardCache();
     }
 
@@ -158,8 +159,8 @@ class LuongServiceTest {
         lenient().when(currentUser.getAuthorities()).thenAnswer(invocation -> Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN")));
 
         when(bangLuongThangRepository.existsByMaGvAndThangAndNam("GV001", 5, 2023)).thenReturn(false);
-        when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.of(new CauHinhLuong()));
-        when(nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
+        when(cauHinhLuongService.getActiveCauHinh()).thenReturn(new CauHinhLuong());
+        when(scheduleFacade.getUnpaidLogs(eq("GV001"), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(Collections.emptyList()); // No unpaid logs
 
         // Act & Assert

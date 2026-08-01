@@ -1,16 +1,17 @@
 package com.wiz.universityerpapi.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wiz.universityerpapi.dto.ChotLuongRequestDTO;
-import com.wiz.universityerpapi.dto.ChotLuongResponseDTO;
-import com.wiz.universityerpapi.entity.CauHinhLuong;
-import com.wiz.universityerpapi.entity.NhatKyGiangDay;
-import com.wiz.universityerpapi.repository.BangLuongThangRepository;
-import com.wiz.universityerpapi.repository.CauHinhLuongRepository;
-import com.wiz.universityerpapi.repository.NhatKyGiangDayRepository;
+import com.wiz.universityerpapi.payroll.application.dto.ChotLuongRequestDTO;
+import com.wiz.universityerpapi.payroll.application.dto.ChotLuongResponseDTO;
+import com.wiz.universityerpapi.payroll.infrastructure.entity.CauHinhLuong;
+import com.wiz.universityerpapi.schedule.application.dto.GiangVienHeSoDTO;
+import com.wiz.universityerpapi.schedule.application.dto.UnpaidLogDTO;
+import com.wiz.universityerpapi.schedule.application.facade.ScheduleFacade;
+import com.wiz.universityerpapi.payroll.application.service.LuongService;
+import com.wiz.universityerpapi.payroll.application.service.CauHinhLuongService;
+import com.wiz.universityerpapi.payroll.infrastructure.repository.BangLuongThangRepository;
 import com.wiz.universityerpapi.repository.UserRepository;
-import com.wiz.universityerpapi.repository.projection.GiangVienHeSoView;
-import com.wiz.universityerpapi.security.CustomUserDetails;
+import com.wiz.universityerpapi.core.security.CustomUserDetails;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +38,9 @@ import static org.mockito.Mockito.*;
 public class AuthorizationTest {
 
     @Mock
-    private CauHinhLuongRepository cauHinhLuongRepository;
+    private CauHinhLuongService cauHinhLuongService;
     @Mock
-    private NhatKyGiangDayRepository nhatKyGiangDayRepository;
+    private ScheduleFacade scheduleFacade;
     @Mock
     private BangLuongThangRepository bangLuongThangRepository;
     @Mock
@@ -70,18 +71,18 @@ public class AuthorizationTest {
         CauHinhLuong cauHinh = new CauHinhLuong();
         cauHinh.setLuongCoBan(new BigDecimal("5000000"));
         cauHinh.setDonGiaTietChuan(new BigDecimal("150000"));
-        when(cauHinhLuongRepository.findFirstByTrangThaiOrderByIdDesc("ACTIVE")).thenReturn(Optional.of(cauHinh));
+        when(cauHinhLuongService.getActiveCauHinh()).thenReturn(cauHinh);
 
-        NhatKyGiangDay nk = new NhatKyGiangDay();
+        UnpaidLogDTO nk = new UnpaidLogDTO();
         nk.setSoTietThucTe(10);
         nk.setNgayDayThucTe(LocalDate.now());
-        when(nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(anyString(), any(LocalDate.class), any(LocalDate.class)))
+        when(scheduleFacade.getUnpaidLogs(anyString(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(Collections.singletonList(nk));
 
-        GiangVienHeSoView heSoView = mock(GiangVienHeSoView.class);
+        GiangVienHeSoDTO heSoView = mock(GiangVienHeSoDTO.class);
         when(heSoView.getHeSoCd()).thenReturn(new BigDecimal("1.5"));
         when(heSoView.getHeSoHv()).thenReturn(new BigDecimal("1.0"));
-        when(userRepository.findHeSoByMaGv(anyString())).thenReturn(Optional.of(heSoView));
+        when(scheduleFacade.getHeSoByMaGv(anyString())).thenReturn(heSoView);
 
         when(objectMapper.writeValueAsString(any())).thenReturn("{}");
         

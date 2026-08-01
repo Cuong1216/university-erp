@@ -1,6 +1,6 @@
 package com.wiz.universityerpapi.controller;
 
-import com.wiz.universityerpapi.dto.SalaryStatsResponseDTO;
+import com.wiz.universityerpapi.payroll.application.dto.SalaryStatsResponseDTO;
 import com.wiz.universityerpapi.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

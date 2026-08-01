@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import com.wiz.universityerpapi.schedule.infrastructure.entity.GiangVien;
 
 @Entity
 @Table(name = "users")

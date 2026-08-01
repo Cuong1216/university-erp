@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import com.wiz.universityerpapi.security.AuthorizationConstants;
+import com.wiz.universityerpapi.core.security.AuthorizationConstants;
 
 import java.util.Map;
 

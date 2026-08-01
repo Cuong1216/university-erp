@@ -1,13 +1,13 @@
 package com.wiz.universityerpapi.service;
 
-import com.wiz.universityerpapi.config.VNPayConfig;
+import com.wiz.universityerpapi.core.config.VNPayConfig;
 import com.wiz.universityerpapi.dto.payment.PaymentDTOs.*;
 import com.wiz.universityerpapi.entity.HocPhi;
 import com.wiz.universityerpapi.entity.ThanhToanLog;
-import com.wiz.universityerpapi.exception.ResourceNotFoundException;
+import com.wiz.universityerpapi.core.exception.ResourceNotFoundException;
 import com.wiz.universityerpapi.repository.HocPhiRepository;
 import com.wiz.universityerpapi.repository.ThanhToanLogRepository;
-import com.wiz.universityerpapi.util.VNPayUtil;
+import com.wiz.universityerpapi.core.util.VNPayUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;

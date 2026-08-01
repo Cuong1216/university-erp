@@ -1,6 +1,6 @@
 package com.wiz.universityerpapi.service;
 
-import com.wiz.universityerpapi.dto.SalaryStatsResponseDTO;
+import com.wiz.universityerpapi.payroll.application.dto.SalaryStatsResponseDTO;
 
 /**
  * Interface cho Dashboard Service — tuân thủ nguyên tắc Dependency Inversion (SOLID).
