@@ -57,6 +57,36 @@ public class LuongService implements ILuongService {
      * - Controller: ngăn user không có role truy cập endpoint
      * - Service: ngăn GIANG_VIEN chốt lương cho người khác (business rule)
      */
+    public void validateTruocKhiChotLuong(ChotLuongRequestDTO request, CustomUserDetails currentUser) {
+        String maGvToProcess = request.getMaGv();
+        boolean isAdminOrGiaoVu = currentUser.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_GIAO_VU"));
+        if (!isAdminOrGiaoVu) {
+            if (currentUser.getMaGv() == null || !currentUser.getMaGv().equals(maGvToProcess)) {
+                throw new AccessDeniedException("Giảng viên không được chốt lương thay người khác");
+            }
+        }
+
+        String maGv = request.getMaGv();
+        int thang = request.getThang();
+        int nam = request.getNam();
+        
+        if (!userRepository.existsByUsername(maGv)) {
+            throw new ResourceNotFoundException("Không tìm thấy giảng viên có mã: " + maGv);
+        }
+
+        if (bangLuongThangRepository.existsByMaGvAndThangAndNam(maGv, thang, nam)) {
+            throw new ConflictException(String.format("Bảng lương tháng %d/%d của giảng viên %s đã được chốt trước đó", thang, nam, maGv));
+        }
+
+        LocalDate tuNgay = LocalDate.of(nam, thang, 1);
+        LocalDate denNgay = tuNgay.withDayOfMonth(tuNgay.lengthOfMonth());
+        List<NhatKyGiangDay> unpaidLogs = nhatKyGiangDayRepository.findUnpaidLogsByGvAndDateRange(maGv, tuNgay, denNgay);
+        if (unpaidLogs.isEmpty()) {
+            throw new BusinessRuleViolationException(String.format("Giảng viên %s không có tiết dạy nào chưa thanh toán trong tháng %d/%d", maGv, thang, nam));
+        }
+    }
+
     @Transactional
     @LogAuditAction(actionType = "CHOT_LUONG_THANG", entityName = "BangLuongThang", idExpression = "#result.maBangLuong")
     public ChotLuongResponseDTO chotLuongThang(ChotLuongRequestDTO request, CustomUserDetails currentUser) {

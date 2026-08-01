@@ -36,6 +36,7 @@ public class LuongController {
     @PreAuthorize(AuthorizationConstants.CAN_MANAGE_PAYROLL)
     public ResponseEntity<Map<String, Object>> chotLuongThang(@Valid @RequestBody ChotLuongRequestDTO request,
                                                               @AuthenticationPrincipal CustomUserDetails currentUser) {
+        luongService.validateTruocKhiChotLuong(request, currentUser);
         luongService.chotLuongThangAsync(request, currentUser);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(Map.of(

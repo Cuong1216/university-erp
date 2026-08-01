@@ -23,6 +23,7 @@ public interface ILuongService {
      * Chốt lương bất đồng bộ — trả về ngay lập tức và push kết quả qua WebSocket.
      */
     CompletableFuture<Void> chotLuongThangAsync(ChotLuongRequestDTO request, CustomUserDetails currentUser);
+    void validateTruocKhiChotLuong(ChotLuongRequestDTO request, CustomUserDetails currentUser);
 
     /**
      * Lấy lịch sử lương của giảng viên hiện tại.

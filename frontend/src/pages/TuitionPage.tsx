@@ -23,10 +23,10 @@ export const TuitionPage: React.FC = () => {
     setError(null);
     try {
       const data = isAdminOrGiaoVu 
-        ? await paymentApi.getAllTuitions(currentPage, pageSize) 
-        : await paymentApi.getMyTuitions(currentPage, pageSize);
-      setTuitions(data.content);
-      setTotalPages(data.totalPages);
+        ? await paymentApi.getAllTuitions() 
+        : await paymentApi.getMyTuitions();
+      setTuitions(data);
+      setTotalPages(1);
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const err = error as any;
