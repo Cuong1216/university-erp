@@ -6,8 +6,8 @@ on:
     branches: [main, master]
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME_BACKEND: ${{ github.repository }}/backend
-  IMAGE_NAME_FRONTEND: ${{ github.repository }}/frontend
+  IMAGE_NAME_BACKEND: cuong1216/university-erp/backend
+  IMAGE_NAME_FRONTEND: cuong1216/university-erp/frontend
 jobs:
   # Job 1: Unit + Integration Tests (Backend)
   test-backend:
