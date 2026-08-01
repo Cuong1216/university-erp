@@ -11,6 +11,7 @@ export const SalaryConfigPage: React.FC = () => (
 );
 
 export const UsersListPage: React.FC = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [users, setUsers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -20,6 +21,7 @@ export const UsersListPage: React.FC = () => {
       try {
         const response = await axiosClient.get('/users');
         setUsers(response.data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         setError(err.response?.data?.message || 'Không thể tải danh sách tài khoản');
       } finally {

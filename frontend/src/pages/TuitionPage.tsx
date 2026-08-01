@@ -14,7 +14,6 @@ export const TuitionPage: React.FC = () => {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
 
   const isAdminOrGiaoVu = roles.some((r) => ['ROLE_ADMIN', 'ROLE_GIAO_VU'].includes(r));
 
@@ -34,7 +33,7 @@ export const TuitionPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [isAdminOrGiaoVu, currentPage, pageSize]);
+  }, [isAdminOrGiaoVu]);
 
   useEffect(() => {
     // eslint-disable-next-line
