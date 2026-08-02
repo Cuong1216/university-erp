@@ -1,7 +1,7 @@
 # ==========================================
 # Stage 1: Build Spring Boot application
 # ==========================================
-FROM maven:3.9.9-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 
 # Copy pom.xml và tải dependencies trước để tận dụng Docker layer caching
@@ -15,7 +15,7 @@ RUN mvn clean package -DskipTests -B
 # ==========================================
 # Stage 2: Lightweight Runtime
 # ==========================================
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
 # Tạo non-root user/group để tăng cường bảo mật container
