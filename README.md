@@ -24,7 +24,7 @@
 
 ## 🏛️ Architecture & System Design
 
-The application follows an **Enterprise Monorepo Architecture** unifying a Java 17 Spring Boot REST API and a React Vite SPA client. In production, both services communicate seamlessly inside a Docker bridge network where an optimized Nginx container serves compressed static assets and acts as a reverse proxy for API traffic (`/api/*`), eliminating cross-origin (CORS) overhead and hiding internal backend ports from public internet exposure.
+The application follows an **Enterprise Monorepo Architecture** unifying a Java 21 Spring Boot REST API and a React Vite SPA client. In production, both services communicate seamlessly inside a Docker bridge network where an optimized Nginx container serves compressed static assets and acts as a reverse proxy for API traffic (`/api/*`), eliminating cross-origin (CORS) overhead and hiding internal backend ports from public internet exposure.
 
 ```text
 [ 🌐 Web Browser / Client ]
@@ -70,7 +70,7 @@ The application follows an **Enterprise Monorepo Architecture** unifying a Java 
 * **Vite & WebSocket Compatibility:** Natively configured `define: { global: 'window' }` in `vite.config.ts` ensuring seamless compatibility between modern Vite ES modules and Node-based WebSocket libraries (`@stomp/stompjs` & `sockjs-client`).
 
 ### 5. 🚀 DevOps, Multi-Stage Builds & Automated CI/CD
-* **Multi-Stage Containerization:** Built highly compact Docker images using layered builds (`maven:3.9.9-eclipse-temurin-17-alpine` ➔ `eclipse-temurin:17-jre-alpine` running as a non-root `spring:spring` user; and `node:18-alpine` ➔ `nginx:alpine` with Gzip asset compression).
+* **Multi-Stage Containerization:** Built highly compact Docker images using layered builds (`maven:3.9.9-eclipse-temurin-21-alpine` ➔ `eclipse-temurin:21-jre-alpine` running as a non-root `spring:spring` user; and `node:18-alpine` ➔ `nginx:alpine` with Gzip asset compression).
 * **Automated TDD Quality Gate:** Integrated GitHub Actions (`.github/workflows/ci.yml`) spinning up ephemeral PostgreSQL containers to execute full `mvn clean verify` unit/integration test suites alongside React TypeScript compilation and `ESLint` style validations on every commit.
 * **Full CI/CD Pipeline:** Includes Deploy Stages to Staging and Production with Security Scan & Smoke tests.
 * **Required GitHub Secrets** (Must be configured in repository settings):
@@ -89,7 +89,7 @@ university-erp/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml               # Automated CI pipeline (Maven verify & npm lint/build)
-├── backend/                     # Spring Boot 3 REST API (Java 17)
+├── backend/                     # Spring Boot 3 REST API (Java 21)
 │   ├── src/main/java/com/wiz/universityerpapi/
 │   │   ├── controller/          # REST endpoints (DashboardController, LuongController, etc.)
 │   │   ├── service/             # Transactional business logic & payroll calculation
@@ -171,7 +171,7 @@ When the application boots, `DataInitializer.java` automatically seeds the datab
 
 | Category | Technologies |
 | :--- | :--- |
-| **Backend Core** | Java 17, Spring Boot 3.4.1, Spring Security 6, Spring Data JPA, Hibernate ORM |
+| **Backend Core** | Java 21, Spring Boot 3.4.1, Spring Security 6, Spring Data JPA, Hibernate ORM |
 | **Security & Auth** | JSON Web Tokens (JJWT 0.12.6 with HMAC-SHA512), BCrypt Password Hashing |
 | **Database & Caching** | PostgreSQL 15, HikariCP Connection Pooling, B-Tree Indexing |
 | **Frontend Core** | React 18, TypeScript 5.6, Vite 8, Recharts 3, Zustand State Management, React Router 7 |
